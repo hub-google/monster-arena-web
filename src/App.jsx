@@ -7,7 +7,8 @@ import Arena from './pages/Arena';
 import Guild from './pages/Guild';
 import Raid from './pages/Raid';
 import { api } from './utils/api';
-import { supabase } from './utils/supabaseClient';
+import { auth } from './utils/firebaseClient';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -21,91 +22,25 @@ export default function App() {
   const [page, setPage] = useState('dashboard');
   const [loading, setLoading] = useState(true);
 
-  // WebSocket (Supabase Realtime) states
-  const [worldChannel, setWorldChannel] = useState(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [activePlayers, setActivePlayers] = useState([]);
+  // WebSocket / Realtime mocked for Firebase tests
+  const isConnected = true;
+  const worldChannel = null;
+  const activePlayers = [];
   const [receivedChallenge, setReceivedChallenge] = useState(null);
   const [battleState, setBattleState] = useState(null);
 
   // Initial load
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) loadUserData(session.user);
-      else setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        loadUserData();
+      } else {
+        handleLogout();
+        setLoading(false);
+      }
     });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) loadUserData(session.user);
-      else handleLogout();
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
-
-  // Supabase Realtime
-  useEffect(() => {
-    if (!user) {
-      if (worldChannel) {
-        supabase.removeChannel(worldChannel);
-        setWorldChannel(null);
-      }
-      setIsConnected(false);
-      return;
-    }
-
-    const channel = supabase.channel('world_room', {
-      config: {
-        presence: { key: user.user_id },
-        broadcast: { self: true }
-      }
-    });
-
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const players = Object.keys(state).map(k => state[k][0]?.user).filter(Boolean);
-        setActivePlayers(players);
-      })
-      .on('broadcast', { event: 'challenge' }, ({ payload }) => {
-        if (payload.targetUserId === user.user_id) {
-          setReceivedChallenge(payload);
-          setPage('arena');
-        }
-      })
-      .on('broadcast', { event: 'battle_start' }, ({ payload }) => {
-        if (payload.roomId === user.user_id || payload.targetUserId === user.user_id) {
-          setBattleState({
-            roomId: payload.roomId,
-            mA: payload.mA,
-            mB: payload.mB,
-            logs: ['💥 戰鬥開始！'],
-            isOver: false,
-            winner: null
-          });
-          setPage('arena');
-        }
-      })
-      .on('broadcast', { event: 'battle_end' }, ({ payload }) => {
-        if (battleState && payload.roomId === battleState.roomId) {
-          setBattleState(prev => prev ? { ...prev, isOver: true, winner: payload.winner, logs: [...prev.logs, payload.log] } : null);
-        }
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setIsConnected(true);
-          channel.track({ user: { user_id: user.user_id, username: user.username } });
-        }
-      });
-
-    setWorldChannel(channel);
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
 
   const loadUserData = async () => {
     try {
@@ -138,11 +73,11 @@ export default function App() {
   };
 
   const handleLoginSuccess = () => {
-    // onAuthStateChange handles loading data
+    // onAuthStateChanged handles loading data
   };
 
-  const handleLogout = () => {
-    supabase.auth.signOut();
+  const handleLogout = async () => {
+    if (auth.currentUser) await signOut(auth);
     setUser(null);
     setMonsters([]);
     setInventory([]);

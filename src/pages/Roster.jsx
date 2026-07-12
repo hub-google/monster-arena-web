@@ -246,7 +246,7 @@ export default function Roster({
                 <span>父親親代 (P1):</span>
                 <select value={parent1} onChange={(e) => setParent1(e.target.value)} className="bg-lcd-bg border border-lcd-border px-0.5 py-0.5 text-[6px] text-lcd-dark outline-none">
                   <option value="">--選擇--</option>
-                  {monsters.filter(m => m.life_stage >= 4 && !m.is_dead).map(m => (
+                  {monsters.filter(m => m.life_stage >= 3 && !m.is_dead).map(m => (
                     <option key={m.monster_id} value={m.monster_id}>{m.name}</option>
                   ))}
                 </select>
@@ -256,7 +256,7 @@ export default function Roster({
                 <span>母親親代 (P2):</span>
                 <select value={parent2} onChange={(e) => setParent2(e.target.value)} className="bg-lcd-bg border border-lcd-border px-0.5 py-0.5 text-[6px] text-lcd-dark outline-none">
                   <option value="">--選擇--</option>
-                  {monsters.filter(m => m.life_stage >= 4 && !m.is_dead).map(m => (
+                  {monsters.filter(m => m.life_stage >= 3 && !m.is_dead).map(m => (
                     <option key={m.monster_id} value={m.monster_id}>{m.name}</option>
                   ))}
                 </select>
