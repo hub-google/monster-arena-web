@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom LCD retro styling */
+.lcd-screen {
+  background-color: #8bac0f;
+  color: #0f380f;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.4);
+  position: relative;
+  overflow: hidden;
+  font-family: 'Press Start 2P', monospace;
+}
+
+/* CRT Scanlines Overlay */
+.lcd-screen::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.12) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.04));
+  z-index: 10;
+  background-size: 100% 3px, 6px 100%;
+  pointer-events: none;
+}
+
+/* LCD screen flicker effect */
+@keyframes flicker {
+  0% { opacity: 0.98; }
+  50% { opacity: 1.0; }
+  100% { opacity: 0.99; }
+}
+
+.lcd-screen {
+  animation: flicker 0.15s infinite;
+}
+
+/* Micro animations for idle breathing */
+@keyframes breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.pixel-breathe {
+  animation: breathe 1.2s infinite ease-in-out;
+}
+
+/* Shake animation for hits */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.pixel-shake {
+  animation: shake 0.4s;
+}
+
+/* Custom scrollbars for retro styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
