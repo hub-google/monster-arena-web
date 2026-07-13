@@ -88,12 +88,33 @@ export default function App() {
     }
   };
 
+  const loadMonsterData = async () => {
+    try {
+      const monList = await api.getMonsters();
+      setMonsters(monList);
+
+      if (monList.length > 0) {
+        const alive = monList.find(m => !m.is_dead);
+        setActiveMonster(prev => {
+          if (!prev && alive) return alive;
+          if (prev) {
+             const updated = monList.find(m => m.id === prev.id);
+             return updated || prev;
+          }
+          return prev;
+        });
+      }
+    } catch (err) {
+      console.error("Error polling monster data:", err);
+    }
+  };
+
   // Auto-refresh interval
   useEffect(() => {
     let intervalId;
     if (user) {
       intervalId = setInterval(() => {
-        loadUserData();
+        loadMonsterData();
       }, 10000); // Poll every 10 seconds
     }
     return () => {
