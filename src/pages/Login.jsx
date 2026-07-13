@@ -38,53 +38,53 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 font-sans">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 font-sans relative overflow-hidden">
       
       {/* Glow effects in the background */}
-      <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-purple-600 rounded-full filter blur-3xl opacity-20 animate-pulse"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-rose-600 rounded-full filter blur-3xl opacity-10 animate-pulse"></div>
+      <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-cyan-600 rounded-full filter blur-[100px] opacity-20 animate-pulse"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-fuchsia-600 rounded-full filter blur-[100px] opacity-10 animate-pulse"></div>
 
-      <div className="relative w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl flex flex-col items-center">
+      <div className="relative w-full max-w-md glass-panel p-8 flex flex-col items-center">
         
         {/* Retro Gameboy Icon / Logo */}
-        <div className="w-16 h-16 bg-purple-600/20 border border-purple-500/30 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-purple-500/10">
-          <span className="text-3xl">👾</span>
+        <div className="w-20 h-20 bg-slate-900/50 border border-cyan-500/30 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_15px_rgba(8,145,178,0.3)]">
+          <span className="text-4xl animate-bounce">👾</span>
         </div>
 
-        <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 tracking-wide mb-1">
-          Monster Arena Web
+        <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-wider mb-2">
+          MONSTER ARENA
         </h1>
-        <p className="text-sm text-slate-400 mb-6">
-          掌上怪獸對打機網頁模擬器
+        <p className="text-sm text-cyan-200/60 mb-8 font-medium tracking-widest">
+          次世代怪獸養成對戰平台
         </p>
 
         {/* Tab Selection */}
-        <div className="w-full flex bg-slate-800/60 rounded-xl p-1 mb-6 border border-slate-700/50">
+        <div className="w-full flex bg-slate-900/60 rounded-xl p-1.5 mb-8 border border-slate-700/50">
           <button
             type="button"
             onClick={() => { setIsRegister(false); setError(''); }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-300 ${
-              !isRegister ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 ${
+              !isRegister ? 'bg-cyan-600 text-white shadow-[0_0_10px_rgba(8,145,178,0.5)]' : 'text-slate-400 hover:text-white'
             }`}
           >
-            帳號登入
+            登入帳號
           </button>
           <button
             type="button"
             onClick={() => { setIsRegister(true); setError(''); }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-300 ${
-              isRegister ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 ${
+              isRegister ? 'bg-cyan-600 text-white shadow-[0_0_10px_rgba(8,145,178,0.5)]' : 'text-slate-400 hover:text-white'
             }`}
           >
-            新戶註冊
+            註冊新戶
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-5">
           
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 pl-1">
+            <label className="block text-xs font-bold uppercase tracking-wider text-cyan-500 mb-2 pl-1">
               使用者名稱 (Username)
             </label>
             <input
@@ -92,14 +92,14 @@ export default function Login({ onLoginSuccess }) {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="輸入登入帳號"
-              className="w-full bg-slate-800/50 border border-slate-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-all"
+              placeholder="輸入帳號..."
+              className="w-full bg-slate-900/80 border border-slate-700 focus:border-cyan-500 focus:shadow-[0_0_10px_rgba(8,145,178,0.2)] rounded-xl px-4 py-3 text-white placeholder-slate-600 outline-none transition-all"
             />
           </div>
 
           {isRegister && (
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 pl-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-cyan-500 mb-2 pl-1">
                 電子信箱 (Email)
               </label>
               <input
@@ -108,13 +108,13 @@ export default function Login({ onLoginSuccess }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@email.com"
-                className="w-full bg-slate-800/50 border border-slate-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-all"
+                className="w-full bg-slate-900/80 border border-slate-700 focus:border-cyan-500 focus:shadow-[0_0_10px_rgba(8,145,178,0.2)] rounded-xl px-4 py-3 text-white placeholder-slate-600 outline-none transition-all"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 pl-1">
+            <label className="block text-xs font-bold uppercase tracking-wider text-cyan-500 mb-2 pl-1">
               密碼 (Password)
             </label>
             <input
@@ -123,12 +123,12 @@ export default function Login({ onLoginSuccess }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full bg-slate-800/50 border border-slate-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-all"
+              className="w-full bg-slate-900/80 border border-slate-700 focus:border-cyan-500 focus:shadow-[0_0_10px_rgba(8,145,178,0.2)] rounded-xl px-4 py-3 text-white placeholder-slate-600 outline-none transition-all"
             />
           </div>
 
           {error && (
-            <div className="w-full bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-400 text-center font-medium">
+            <div className="w-full bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-sm text-rose-400 text-center font-bold">
               ⚠️ {error}
             </div>
           )}
@@ -136,9 +136,9 @@ export default function Login({ onLoginSuccess }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 active:scale-[0.98] text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-purple-600/20 text-sm transition-all duration-200 disabled:opacity-50 mt-2"
+            className="w-full neon-button neon-button-primary py-4 mt-4 font-bold text-lg"
           >
-            {loading ? '請稍候...' : isRegister ? '建立帳號並登入' : '登入進入大廳'}
+            {loading ? '連線中...' : isRegister ? '建立帳號並登入' : '進入大廳'}
           </button>
         </form>
 

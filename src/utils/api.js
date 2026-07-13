@@ -72,7 +72,7 @@ export const api = {
       const lastUpdated = new Date(m.last_updated_at);
       const hoursPassed = (now - lastUpdated) / (1000 * 60 * 60);
 
-      if (hoursPassed > 0.05) { // update periodically
+      if (hoursPassed > 0.005) { // update periodically (~18 seconds)
         m.age_days += hoursPassed / 24;
         
         // Hunger & Cleanliness deduction
@@ -113,23 +113,32 @@ export const api = {
 
         // 3. Evolution Matrix
         if (!m.is_dead) {
-          if (m.life_stage === 0 && m.age_days >= 0.05) m.life_stage = 1; // Egg -> Baby
-          else if (m.life_stage === 1 && m.age_days >= 0.5) { m.life_stage = 2; m.type = Math.floor(Math.random()*3)+1; } // Baby -> Child
-          else if (m.life_stage === 2 && m.age_days >= 2) { 
-             // Child -> Adult
-             if (m.train_count >= 15 && m.neglect_count <= 2) { m.type = 1; m.life_stage = 3; } // Vaccine
-             else if (m.train_count >= 5 && m.neglect_count <= 5) { m.type = 2; m.life_stage = 3; } // Data
-             else { m.type = 3; m.life_stage = 3; } // Virus
+          // Migrate legacy eggs from stage 0 to 1
+          if (m.life_stage === 0) { m.life_stage = 1; }
+          
+          // Migrate legacy monsters without family
+          if (!m.family) { m.family = Math.floor(Math.random() * 7) + 1; }
+
+          // Egg(1) -> Baby(2): 30 seconds (30/86400 days ≈ 0.00035)
+          if (m.life_stage === 1 && m.age_days >= 0.00035) { m.life_stage = 2; }
+          // Baby(2) -> Child(3): 12 hours (0.5 days)
+          else if (m.life_stage === 2 && m.age_days >= 0.5) { m.life_stage = 3; m.type = Math.floor(Math.random()*3)+1; } 
+          // Child(3) -> Mature(4): 48 hours (2 days)
+          else if (m.life_stage === 3 && m.age_days >= 2) { 
+             if (m.train_count >= 15 && m.neglect_count <= 2) { m.type = 1; m.life_stage = 4; } // Vaccine
+             else if (m.train_count >= 5 && m.neglect_count <= 5) { m.type = 2; m.life_stage = 4; } // Data
+             else { m.type = 3; m.life_stage = 4; } // Virus
           }
-          else if (m.life_stage === 3 && m.age_days >= 4) {
-             // Adult -> Perfect
+          // Mature(4) -> Perfect(5): 96 hours (4 days)
+          else if (m.life_stage === 4 && m.age_days >= 4) {
              const winRate = m.battles > 0 ? m.wins / m.battles : 0;
-             if (m.battles >= 30 && winRate >= 0.6) { m.life_stage = 4; }
-             else if (m.battles >= 15 && winRate >= 0.4) { m.life_stage = 4; }
-             else { m.life_stage = 4; m.type = 3; } 
+             if (m.battles >= 30 && winRate >= 0.6) { m.life_stage = 5; }
+             else if (m.battles >= 15 && winRate >= 0.4) { m.life_stage = 5; }
+             else { m.life_stage = 5; m.type = 3; } 
           }
-          else if (m.life_stage === 4 && m.age_days >= 7) {
-             // Perfect -> Ultimate (Wait, requires item, handled in API evolve endpoint, so we don't auto-evolve)
+          // Perfect(5) -> Ultimate(6): 168 hours (7 days)
+          else if (m.life_stage === 5 && m.age_days >= 7) {
+             // Handled in API evolve endpoint (requires item)
           }
 
           // 4. Aging Decline (30 days peak)
@@ -161,6 +170,7 @@ export const api = {
           combat_spd: m.combat_spd,
           life_stage: m.life_stage,
           type: m.type,
+          family: m.family,
           last_updated_at: m.last_updated_at
         });
       }
@@ -195,8 +205,9 @@ export const api = {
         user_id: uid,
         name: '數位蛋',
         generation: 1,
-        life_stage: 0,
+        life_stage: 1,
         type: 0,
+        family: Math.floor(Math.random() * 7) + 1, // 1 to 7 families
         age_days: 0,
         fullness: 100,
         cleanliness: 100,
@@ -266,6 +277,13 @@ export const api = {
     await updateDoc(invSnap.docs[0].ref, { quantity: invSnap.docs[0].data().quantity - 1 });
     await updateDoc(doc(db, 'monsters', monster_id), { is_sick: false, sick_time_start: null });
     return { message: '注射特效藥，怪獸已經康復！' };
+  },
+
+  rename: async (monster_id, new_name) => {
+    if (!new_name || new_name.trim().length === 0) throw new Error('名字不能為空！');
+    if (new_name.length > 20) throw new Error('名字太長了！');
+    await updateDoc(doc(db, 'monsters', monster_id), { custom_name: new_name.trim() });
+    return { message: `怪獸已改名為 ${new_name.trim()}！` };
   },
 
   train: async (monster_id) => {

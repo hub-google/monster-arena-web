@@ -1,4 +1,5 @@
 import React from 'react';
+import { MONSTER_SPRITES } from '../utils/monsterSprites';
 
 // 16x16 Pixel Art Grids (1 = active pixel, 0 = empty)
 const PIXEL_GRIDS = {
@@ -20,6 +21,51 @@ const PIXEL_GRIDS = {
     [0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0],
     [0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0],
     [0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0]
+  ],
+
+  tombstone: [
+    [0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0],
+    [0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0],
+    [0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0],
+    [0,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0],
+    [0,0,0,1,0,0,1,1,1,0,1,0,0,0,0,0],
+    [0,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0],
+    [0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0],
+    [0,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0],
+    [0,0,0,1,0,0,1,0,0,0,1,0,0,0,0,0],
+    [0,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0],
+    [0,0,0,1,0,0,0,0,1,0,1,0,0,0,0,0],
+    [0,0,0,1,0,0,0,0,0,1,1,0,0,0,0,0],
+    [0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0],
+    [0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0]
+  ],
+
+  emote_heart: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,1,0,1,1,0,0,0,0,0,0],
+    [0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0],
+    [0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0],
+    [0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0],
+    [0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+  ],
+  emote_angry: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0],
+    [0,0,0,0,1,1,0,1,1,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0],
+    [0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
   ],
 
   // BABY (Stage 2)
@@ -354,23 +400,42 @@ const PIXEL_GRIDS = {
  * @param {boolean} [props.isPoop] - If true, renders a poop pile next to it.
  * @param {string} [props.className] - Additional CSS styling.
  */
-export default function MonsterPixelArt({ stage, type, isDead = false, isSick = false, isPoop = false, className = '' }) {
+export default function MonsterPixelArt({ family, stage, type, isDead, isSick, isPoop, isHappy, isHungry, className = '' }) {
   let gridKey = 'egg';
+  let grid = null;
 
   if (isDead) {
     gridKey = 'tombstone';
+    grid = PIXEL_GRIDS[gridKey];
   } else if (stage === 1) {
     gridKey = 'egg';
+    grid = PIXEL_GRIDS[gridKey];
   } else if (stage === 2) {
     gridKey = 'baby';
+    grid = PIXEL_GRIDS[gridKey];
   } else {
-    // Stage 3-6: child_[type], mature_[type], perfect_[type], ultimate_[type]
-    const stagePrefix = stage === 3 ? 'child' : stage === 4 ? 'mature' : stage === 5 ? 'perfect' : 'ultimate';
-    gridKey = `${stagePrefix}_${type}`;
+    // Attempt to load procedurally generated sprite from 100 monsters
+    const spriteKey = `${family || 1}_${stage}_${type || 0}`;
+    if (MONSTER_SPRITES[spriteKey]) {
+      grid = MONSTER_SPRITES[spriteKey].grid;
+    } else {
+      // Fallback
+      const stagePrefix = stage === 3 ? 'child' : stage === 4 ? 'mature' : stage === 5 ? 'perfect' : 'ultimate';
+      gridKey = `${stagePrefix}_${type || 1}`;
+      grid = PIXEL_GRIDS[gridKey] || PIXEL_GRIDS.egg;
+    }
   }
 
-  const grid = PIXEL_GRIDS[gridKey] || PIXEL_GRIDS.egg;
+  if (!grid) grid = PIXEL_GRIDS.egg;
   const pixelSize = 6; // each pixel is 6px
+
+  // Determine Animation Class
+  let animClass = '';
+  if (!isDead && stage > 1) {
+    if (isHappy) animClass = 'animate-bounce-happy';
+    else if (isSick || isHungry) animClass = 'animate-shake-weak';
+    else animClass = 'animate-walk-side';
+  }
 
   return (
     <div className={`relative flex items-center justify-center select-none ${className}`}>
@@ -380,7 +445,7 @@ export default function MonsterPixelArt({ stage, type, isDead = false, isSick = 
         width="96" 
         height="96" 
         viewBox="0 0 96 96" 
-        className={`${!isDead && stage > 1 ? 'pixel-breathe' : ''}`}
+        className={`${animClass}`}
       >
         {grid.map((row, rIdx) => 
           row.map((val, cIdx) => {
@@ -400,6 +465,31 @@ export default function MonsterPixelArt({ stage, type, isDead = false, isSick = 
           })
         )}
       </svg>
+
+      {/* Emotes Overlay (Happy / Angry / Sweat) */}
+      {(isHappy || (isHungry && !isDead)) && (
+        <div className="absolute -top-4 right-0 animate-bounce">
+          <svg width="24" height="24" viewBox="0 0 96 96">
+            {(isHappy ? PIXEL_GRIDS.emote_heart : PIXEL_GRIDS.emote_angry).map((row, rIdx) => 
+              row?.map((val, cIdx) => {
+                if (val === 1) {
+                  return (
+                    <rect 
+                      key={`emote-${rIdx}-${cIdx}`} 
+                      x={cIdx * pixelSize} 
+                      y={rIdx * pixelSize} 
+                      width={pixelSize} 
+                      height={pixelSize} 
+                      fill={isHappy ? "#f43f5e" : "#f59e0b"} 
+                    />
+                  );
+                }
+                return null;
+              })
+            )}
+          </svg>
+        </div>
+      )}
 
       {/* Sick Skull Overlay (positioned top right of screen) */}
       {isSick && !isDead && (

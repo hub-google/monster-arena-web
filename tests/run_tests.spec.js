@@ -16,9 +16,9 @@ test.describe('Monster Arena E2E QA Test', () => {
     await page.screenshot({ path: path.join(REPORT_DIR, '01_Home_Page.png') });
 
     // 情境一：新戶首次註冊
-    await page.click('button:has-text("新戶註冊")');
+    await page.click('button:has-text("註冊新戶")');
     const uniqueId = Date.now();
-    await page.fill('input[placeholder="輸入登入帳號"]', `TestUser_${uniqueId}`);
+    await page.fill('input[placeholder="輸入帳號..."]', `TestUser_${uniqueId}`);
     await page.fill('input[placeholder="example@email.com"]', `testuser_${uniqueId}@test.com`);
     await page.fill('input[placeholder="••••••••"]', 'password123');
     

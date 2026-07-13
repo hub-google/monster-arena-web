@@ -6,7 +6,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:5174/monster-arena-web/',
+    baseURL: 'http://localhost:5173/monster-arena-web/',
     trace: 'on-first-retry',
   },
   projects: [

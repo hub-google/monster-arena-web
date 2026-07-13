@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import HandheldBezel from './components/HandheldBezel';
+import MobileLayout from './components/MobileLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Roster from './pages/Roster';
@@ -7,8 +7,14 @@ import Arena from './pages/Arena';
 import Guild from './pages/Guild';
 import Raid from './pages/Raid';
 import { api } from './utils/api';
-import { auth } from './utils/firebaseClient';
+import { db, auth } from './utils/firebaseClient';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+
+if (typeof window !== 'undefined') {
+  window.api = api;
+  window.db = db;
+  window.auth = auth;
+}
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -52,7 +58,14 @@ export default function App() {
 
       if (monList.length > 0) {
         const alive = monList.find(m => !m.is_dead);
-        if (alive && !activeMonster) setActiveMonster(alive);
+        setActiveMonster(prev => {
+          if (!prev && alive) return alive;
+          if (prev) {
+             const updated = monList.find(m => m.id === prev.id);
+             return updated || prev;
+          }
+          return prev;
+        });
       }
 
       const invList = await api.getInventory();
@@ -66,11 +79,27 @@ export default function App() {
       setMyGuild(guildData.myGuild);
 
     } catch (err) {
-      console.error('Data load error:', err);
+      console.error(err);
+      if (err.message === 'User not authenticated') {
+        handleLogout();
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Auto-refresh interval
+  useEffect(() => {
+    let intervalId;
+    if (user) {
+      intervalId = setInterval(() => {
+        loadUserData();
+      }, 10000); // Poll every 10 seconds
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [user]);
 
   const handleLoginSuccess = () => {
     // onAuthStateChanged handles loading data
@@ -104,13 +133,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 p-4">
-      <HandheldBezel isConnected={isConnected}>
+      <MobileLayout isConnected={isConnected} page={page} setPage={setPage}>
         {page === 'dashboard' && <Dashboard user={user} monsters={monsters} inventory={inventory} refreshData={loadUserData} activeMonster={activeMonster} setActiveMonster={setActiveMonster} setPage={setPage} />}
         {page === 'roster' && <Roster user={user} monsters={monsters} inventory={inventory} refreshData={loadUserData} activeMonster={activeMonster} setActiveMonster={setActiveMonster} setPage={setPage} />}
         {page === 'arena' && <Arena user={user} monsters={monsters} friends={friends} activeMonster={activeMonster} channel={worldChannel} activePlayers={activePlayers} receivedChallenge={receivedChallenge} setReceivedChallenge={setReceivedChallenge} battleState={battleState} setBattleState={setBattleState} refreshData={loadUserData} setPage={setPage} />}
         {page === 'guild' && <Guild user={user} guilds={guilds} myGuild={myGuild} refreshData={loadUserData} setPage={setPage} />}
         {page === 'raid' && <Raid user={user} monsters={monsters} activeMonster={activeMonster} refreshData={loadUserData} setPage={setPage} />}
-      </HandheldBezel>
+      </MobileLayout>
       <div className="mt-4 flex gap-4 text-xs">
         <button onClick={loadUserData} className="text-slate-400 hover:text-white transition">🔄 重新整理</button>
         <span className="text-slate-600">|</span>

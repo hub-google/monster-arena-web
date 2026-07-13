@@ -67,70 +67,89 @@ export default function Raid({
   };
 
   return (
-    <div className="h-full flex flex-col justify-between p-1 font-pressstart text-[8px] text-lcd-dark">
+    <div className="h-full flex flex-col gap-4 animate-fade-in relative z-10">
+      <div className="absolute inset-0 bg-red-900/5 pointer-events-none rounded-2xl"></div>
+
       {/* Header bar */}
-      <div className="flex justify-between items-center border-b border-lcd-border pb-1 text-[7px]">
-        <span>世界王共鬥討伐</span>
-        <span>🔋: {user.stamina}</span>
+      <div className="glass-card p-4 flex justify-between items-center text-sm font-bold border-red-900/30">
+        <span className="text-rose-400">世界王共鬥討伐</span>
+        <span className="text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">🔋 {user.stamina} / 100</span>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col justify-around py-1.5 max-h-48">
+      <div className="flex-1 flex flex-col gap-6">
         
         {boss ? (
-          <div className="border border-lcd-border rounded p-1.5 bg-lcd-light/20 flex flex-col gap-1 text-center select-text">
+          <div className="glass-card p-6 border-rose-500/30 relative overflow-hidden flex flex-col items-center text-center">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-rose-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+
             {/* Boss Name */}
-            <div className="font-bold text-[9px] truncate border-b border-lcd-border pb-0.5 text-red-950">
-              👹 {boss.name}
-            </div>
+            <div className="text-6xl mb-4 animate-pulse drop-shadow-[0_0_15px_rgba(225,29,72,0.6)]">👹</div>
+            <h2 className="text-2xl font-black text-rose-500 tracking-widest mb-6">
+              {boss.name}
+            </h2>
 
             {/* Boss Health Bar */}
-            <div className="my-1.5">
-              <div className="flex justify-between text-[5px] mb-0.5 font-bold">
-                <span>HP: {boss.current_hp.toLocaleString()}</span>
-                <span>/ {boss.max_hp.toLocaleString()}</span>
+            <div className="w-full relative z-10 mb-6">
+              <div className="flex justify-between text-sm mb-2 font-bold">
+                <span className="text-rose-400">HP</span>
+                <span className="text-white">{boss.current_hp.toLocaleString()} <span className="text-slate-500">/ {boss.max_hp.toLocaleString()}</span></span>
               </div>
-              <div className="w-full h-2 border border-lcd-border flex overflow-hidden">
-                <div className="bg-red-800 h-full" style={{ width: `${(boss.current_hp / boss.max_hp) * 100}%` }}></div>
+              <div className="w-full h-4 bg-slate-950 rounded-full overflow-hidden border border-slate-700 shadow-inner">
+                <div 
+                  className="bg-gradient-to-r from-red-600 to-rose-400 h-full transition-all duration-1000 shadow-[0_0_10px_#f43f5e]" 
+                  style={{ width: `${(boss.current_hp / boss.max_hp) * 100}%` }}
+                ></div>
+              </div>
+              <div className="mt-2 text-xs font-bold text-amber-400">
+                {((boss.current_hp / boss.max_hp) * 100).toFixed(2)}%
               </div>
             </div>
 
             {/* Status indicators */}
-            <span className="text-[6.5px]">
+            <div className={`px-4 py-2 rounded-full text-sm font-bold w-full ${boss.is_active ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
               {boss.is_active ? '🔴 全服共鬥進行中' : '🏆 世界王已遭全服討伐成功！'}
-            </span>
+            </div>
           </div>
         ) : (
-          <span className="text-center italic mt-4 text-gray-500">正在加載世界王數據...</span>
+          <div className="glass-card p-10 flex flex-col items-center justify-center h-64 border-slate-700/50">
+            <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <span className="text-slate-400">正在加載世界王數據...</span>
+          </div>
         )}
 
         {/* Monster selector & Attack triggers */}
         {boss && boss.is_active && (
-          <div className="flex flex-col gap-1 border-t border-lcd-border/30 pt-1.5">
+          <div className="glass-card p-5 mt-auto">
             
-            {/* Monster Dropdown */}
-            <div className="flex gap-1 items-center text-[6px]">
-              <span>出戰:</span>
-              <select 
-                value={selectedMonsterId}
-                onChange={(e) => setSelectedMonsterId(parseInt(e.target.value))}
-                className="flex-1 bg-lcd-bg border border-lcd-border text-[6px] px-1 py-0.5 outline-none text-lcd-dark font-pressstart"
-              >
-                {monsters.filter(m => !m.is_dead).map(m => (
-                  <option key={m.monster_id} value={m.monster_id}>
-                    {m.name} (ATK: {Math.round(m.combat_atk)})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <h4 className="text-sm font-bold text-slate-300 mb-3">準備出擊</h4>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">選擇出戰怪獸</label>
+                <select 
+                  value={selectedMonsterId}
+                  onChange={(e) => setSelectedMonsterId(parseInt(e.target.value))}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-rose-500 transition-colors"
+                >
+                  {monsters.filter(m => !m.is_dead).map(m => (
+                    <option key={m.monster_id} value={m.monster_id}>
+                      {m.name} (攻擊力: {Math.round(m.combat_atk)})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <button
-              onClick={handleAttack}
-              disabled={loading || user.stamina < 15 || monsters.filter(m => !m.is_dead).length === 0}
-              className="w-full py-1.5 bg-lcd-dark text-lcd-bg border border-lcd-border rounded text-[7.5px] font-bold active:scale-95 disabled:opacity-40"
-            >
-              💥 發動討伐突襲 (15體力)
-            </button>
+              <button
+                onClick={handleAttack}
+                disabled={loading || user.stamina < 15 || monsters.filter(m => !m.is_dead).length === 0}
+                className="w-full neon-button neon-button-danger py-4 text-lg font-bold flex items-center justify-center gap-2"
+              >
+                <span>💥 發動討伐突襲</span>
+                <span className="text-xs bg-black/30 px-2 py-1 rounded">-15 體力</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -138,19 +157,10 @@ export default function Raid({
 
       {/* Log message output */}
       {message && (
-        <div className="text-[5.5px] whitespace-pre-line bg-lcd-light/50 border border-lcd-border px-1 py-1 rounded text-center mb-1">
+        <div className="glass-card p-4 text-center text-sm font-medium text-rose-200 border-rose-500/50 bg-rose-900/30 mt-auto whitespace-pre-line">
           {message}
         </div>
       )}
-
-      {/* Navigation tabs */}
-      <div className="grid grid-cols-5 gap-0.5 border-t border-lcd-border pt-1 text-[6.5px] font-bold text-center">
-        <button onClick={() => setPage('dashboard')} className="py-0.5 hover:bg-lcd-light/35 rounded">養成</button>
-        <button onClick={() => setPage('roster')} className="py-0.5 hover:bg-lcd-light/35 rounded">倉庫</button>
-        <button onClick={() => setPage('arena')} className="py-0.5 hover:bg-lcd-light/35 rounded">競技</button>
-        <button onClick={() => setPage('guild')} className="py-0.5 hover:bg-lcd-light/35 rounded">公會</button>
-        <button onClick={() => setPage('raid')} className="py-0.5 bg-lcd-dark text-lcd-bg rounded">討伐</button>
-      </div>
     </div>
   );
 }
