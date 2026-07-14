@@ -9,7 +9,7 @@ const REPORT_DIR = path.join(__dirname, '../../測試報告');
 test.describe('Monster Arena E2E QA Test', () => {
   test('Complete User Journey', async ({ page }) => {
     // Navigate to local dev server
-    await page.goto('/');
+    await page.goto('./');
     await page.waitForLoadState('networkidle');
 
     // Screenshot 1: 登入首頁

@@ -31,14 +31,16 @@ export default function Arena({
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatLogs, battleState?.logs]);
 
-  // Realtime Chat Mock (if no channel)
+  // Realtime Chat via Firebase messages collection
   useEffect(() => {
-    if (!channel) return;
-    const chatHandler = channel.on('broadcast', { event: 'chat_world' }, ({ payload }) => {
-      setChatLogs(prev => [...prev, payload]);
+    const unsubscribe = api.subscribeMessages('world', (msgs) => {
+      setChatLogs(msgs.map(m => ({
+        senderName: m.username,
+        message: m.text
+      })));
     });
-    return () => channel.unsubscribe();
-  }, [channel]);
+    return () => unsubscribe();
+  }, []);
 
   // Battle ATB Engine
   useEffect(() => {
@@ -114,9 +116,12 @@ export default function Arena({
 
   const sendWorldChat = () => {
     if (!chatMessage.trim()) return;
-    const payload = { type: 'chat_world', senderName: user.username, message: chatMessage };
-    if (channel) channel.send({ type: 'broadcast', event: 'chat_world', payload });
-    setChatLogs(prev => [...prev, payload]);
+    
+    // Save to Firebase Database `messages` collection (unified)
+    api.sendMessage('world', chatMessage).catch(err => {
+      setMessage(err.message);
+    });
+    
     setChatMessage('');
   };
 
@@ -131,6 +136,7 @@ export default function Arena({
 
   const handleAcceptChallenge = (mA, mB) => {
     setReceivedChallenge(null);
+    api.trackQuestProgress('battle', 1).catch(e => console.warn(e));
     setBattleState({
       mA, mB,
       mA_HP: mA.combat_hp, mB_HP: mB.combat_hp,

@@ -107,12 +107,6 @@ export default function Roster({
         >
           繁衍
         </button>
-        <button 
-          onClick={() => { setSubTab('shop'); setMessage(''); }}
-          className={`py-3 rounded-xl font-bold transition-all ${subTab === 'shop' ? 'bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.6)]' : 'glass-panel text-slate-400'}`}
-        >
-          商店
-        </button>
       </div>
 
       {/* Main SubTab Content Area (Scrollable) */}
@@ -322,56 +316,6 @@ export default function Roster({
               >
                 融合繁衍一代 (-200G)
               </button>
-            </div>
-          </div>
-        )}
-
-        {subTab === 'shop' && (
-          <div className="glass-card p-5 border-amber-500/30">
-             <h3 className="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2">
-              <span className="text-2xl">🏪</span> 道具補給站
-            </h3>
-            
-            <div className="space-y-3">
-              <div className="bg-slate-900/50 border border-slate-700/50 p-4 rounded-xl flex justify-between items-center hover:border-amber-500/30 transition-colors">
-                <div className="flex flex-col">
-                  <span className="font-bold text-white text-sm">🍖 基本肉</span>
-                  <span className="text-xs text-slate-400">恢復 20 飽食度</span>
-                </div>
-                <button onClick={() => handleBuy('meat_basic')} disabled={loading || user.gold < 10} className="neon-button bg-amber-600 text-white px-4 py-2 text-sm shadow-amber-500/20">10G 購買</button>
-              </div>
-
-              <div className="bg-slate-900/50 border border-slate-700/50 p-4 rounded-xl flex justify-between items-center hover:border-amber-500/30 transition-colors">
-                <div className="flex flex-col">
-                  <span className="font-bold text-white text-sm">🥩 頂級肉</span>
-                  <span className="text-xs text-slate-400">恢復 60 飽食度</span>
-                </div>
-                <button onClick={() => handleBuy('meat_premium')} disabled={loading || user.gold < 50} className="neon-button bg-amber-600 text-white px-4 py-2 text-sm shadow-amber-500/20">50G 購買</button>
-              </div>
-
-              <div className="bg-slate-900/50 border border-slate-700/50 p-4 rounded-xl flex justify-between items-center hover:border-amber-500/30 transition-colors">
-                <div className="flex flex-col">
-                  <span className="font-bold text-white text-sm">🥤 能量飲</span>
-                  <span className="text-xs text-slate-400">30 飽食 + 20 體力</span>
-                </div>
-                <button onClick={() => handleBuy('energy_drink')} disabled={loading || user.gold < 100} className="neon-button bg-amber-600 text-white px-4 py-2 text-sm shadow-amber-500/20">100G 購買</button>
-              </div>
-
-              <div className="bg-slate-900/50 border border-slate-700/50 p-4 rounded-xl flex justify-between items-center hover:border-amber-500/30 transition-colors">
-                <div className="flex flex-col">
-                  <span className="font-bold text-white text-sm">💊 特效藥</span>
-                  <span className="text-xs text-slate-400">解除生病狀態</span>
-                </div>
-                <button onClick={() => handleBuy('medicine_standard')} disabled={loading || user.gold < 200} className="neon-button bg-rose-600 text-white px-4 py-2 text-sm shadow-rose-500/20">200G 購買</button>
-              </div>
-
-              <div className="bg-slate-900/50 border border-slate-700/50 p-4 rounded-xl flex justify-between items-center hover:border-amber-500/30 transition-colors">
-                <div className="flex flex-col">
-                  <span className="font-bold text-white text-sm">🧪 維他命</span>
-                  <span className="text-xs text-slate-400">+10% 訓練成功率</span>
-                </div>
-                <button onClick={() => handleBuy('vitamin')} disabled={loading || user.gold < 50} className="neon-button bg-cyan-600 text-white px-4 py-2 text-sm shadow-cyan-500/20">50G 購買</button>
-              </div>
             </div>
           </div>
         )}

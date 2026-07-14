@@ -4,9 +4,16 @@ import { fileURLToPath } from 'url';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, connectFirestoreEmulator, doc, setDoc, collection, getDocs, updateDoc, query, where } from 'firebase/firestore';
 
-const firebaseApp = initializeApp({ projectId: "monster-arena-web-app" });
+const firebaseApp = initializeApp({
+  apiKey: "AIzaSyAkC3Ra_v7SwyaCgMsKotqYilwLo-55ih4",
+  authDomain: "monster-arena-web-app.firebaseapp.com",
+  projectId: "monster-arena-web-app",
+  storageBucket: "monster-arena-web-app.firebasestorage.app",
+  messagingSenderId: "36423258503",
+  appId: "1:36423258503:web:61049c5b6c745cd1368322"
+});
 const db = getFirestore(firebaseApp);
-connectFirestoreEmulator(db, '127.0.0.1', 8080);
+// connectFirestoreEmulator(db, '127.0.0.1', 8080);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,20 +27,20 @@ test.describe('Monster Arena - Full 14 Scenarios Test Plan', () => {
 
   // 情境一：新戶首次註冊
   test('Scenario 1: Register', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
     await page.click('text=註冊新戶');
     await page.fill('input[placeholder="輸入帳號..."]', username);
     await page.fill('input[placeholder="example@email.com"]', userEmail);
     await page.fill('input[placeholder="••••••••"]', userPass);
     await page.screenshot({ path: path.join(REPORT_DIR, '01_Before_Register.png') });
     await page.click('button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForSelector('text=HATCH EGG', { timeout: 15000 });
     await page.screenshot({ path: path.join(REPORT_DIR, '01_Dashboard_After_Register.png') });
   });
 
   // 情境二：既有帳號登入
   test('Scenario 2: Existing Login', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
     await page.click('button:has-text("登入帳號")');
     await page.fill('input[placeholder="輸入帳號..."]', userEmail);
     await page.fill('input[placeholder="••••••••"]', 'wrongpassword');
@@ -49,7 +56,7 @@ test.describe('Monster Arena - Full 14 Scenarios Test Plan', () => {
 
   // 情境三：首抽數位蛋 (Hatch Egg)
   test('Scenario 3: Hatch Egg', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
     await page.fill('input[placeholder="輸入帳號..."]', userEmail);
     await page.fill('input[placeholder="••••••••"]', userPass);
     await page.click('button[type="submit"]');
@@ -62,7 +69,7 @@ test.describe('Monster Arena - Full 14 Scenarios Test Plan', () => {
 
   // 情境四 & 五 & 六：餵食、訓練、環境
   test('Scenario 4,5,6: Feed, Train, Clean', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
     await page.fill('input[placeholder="輸入帳號..."]', userEmail);
     await page.fill('input[placeholder="••••••••"]', userPass);
     await page.click('button[type="submit"]');
@@ -92,38 +99,30 @@ test.describe('Monster Arena - Full 14 Scenarios Test Plan', () => {
     await page.screenshot({ path: path.join(REPORT_DIR, '04_Status_Hungry_Sick.png') });
 
     // 餵食
-    if (await page.$('text=🍽️ 餵食')) {
-      await page.click('text=🍽️ 餵食');
-      await page.waitForTimeout(1000);
-      await page.screenshot({ path: path.join(REPORT_DIR, '04_Feed_Menu.png') });
-      await page.click('button:has-text("基本肉")');
-      await page.waitForTimeout(1000);
-    }
+    await page.click('text=🍽️ 餵食');
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(REPORT_DIR, '04_Feed_Menu.png') });
+    await page.click('button:has-text("基本肉")');
+    await page.waitForTimeout(1000);
 
     // 訓練
-    if (await page.$('text=⚔️ 訓練')) {
-      await page.click('text=⚔️ 訓練');
-      await page.waitForTimeout(1000);
-      await page.screenshot({ path: path.join(REPORT_DIR, '05_Train_Result.png') });
-    }
+    await page.click('text=⚔️ 訓練');
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(REPORT_DIR, '05_Train_Result.png') });
 
     // 環境清潔
-    if (await page.$('text=🧹 打掃')) {
-      await page.click('text=🧹 打掃');
-      await page.waitForTimeout(1000);
-    }
+    await page.click('text=🧹 打掃');
+    await page.waitForTimeout(1000);
 
     // 治療
-    if (await page.$('text=💊 治療')) {
-      await page.click('text=💊 治療');
-      await page.waitForTimeout(1000);
-      await page.screenshot({ path: path.join(REPORT_DIR, '06_Clean_Heal_Result.png') });
-    }
+    await page.click('text=💊 治療');
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(REPORT_DIR, '06_Clean_Heal_Result.png') });
   });
 
   // 情境七、八、九、十：進化、倉庫鎖定、晶片、繁衍
   test('Scenario 7,8,9,10: Evolution, Roster, Breed', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
     await page.fill('input[placeholder="輸入帳號..."]', userEmail);
     await page.fill('input[placeholder="••••••••"]', userPass);
     await page.click('button[type="submit"]');
@@ -155,24 +154,20 @@ test.describe('Monster Arena - Full 14 Scenarios Test Plan', () => {
     await page.waitForTimeout(2000);
 
     // 切換到 test_mon_1
-    if (await page.$('text=切換怪獸')) {
-      await page.click('text=切換怪獸');
-      await page.waitForTimeout(1000);
-      await page.selectOption('select', 'test_mon_1');
-      await page.click('.bottom-nav-item >> text=養成');
-      await page.waitForTimeout(1000);
-    }
+    await page.click('text=切換怪獸');
+    await page.waitForTimeout(1000);
+    await page.selectOption('select', 'test_mon_1');
+    await page.click('button:has-text("養成")');
+    await page.waitForTimeout(1000);
 
     // 7. 究極進化
-    if (await page.$('text=🧬 究極進化')) {
-       await page.screenshot({ path: path.join(REPORT_DIR, '07_Before_Evolution.png') });
-       await page.click('text=🧬 究極進化');
-       await page.waitForTimeout(2500);
-       await page.screenshot({ path: path.join(REPORT_DIR, '07_After_Evolution.png') });
-    }
+    await page.screenshot({ path: path.join(REPORT_DIR, '07_Before_Evolution.png') });
+    await page.click('text=🧬 究極進化');
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(REPORT_DIR, '07_After_Evolution.png') });
 
     // 8. 倉庫鎖定與 9. 晶片
-    await page.click('.bottom-nav-item >> text=倉庫');
+    await page.click('button:has-text("倉庫")');
     await page.waitForTimeout(1000);
     await page.screenshot({ path: path.join(REPORT_DIR, '08_Roster_Lock_Release.png') });
     
@@ -197,7 +192,7 @@ test.describe('Monster Arena - Full 14 Scenarios Test Plan', () => {
     const pageB = await contextB.newPage();
 
     // Player A Login
-    await pageA.goto('/');
+    await pageA.goto('./');
     await pageA.fill('input[placeholder="輸入帳號..."]', userEmail);
     await pageA.fill('input[placeholder="••••••••"]', userPass);
     await pageA.click('button[type="submit"]');
@@ -205,7 +200,7 @@ test.describe('Monster Arena - Full 14 Scenarios Test Plan', () => {
 
     // Player B Register & Login
     const bEmail = `test_b_${uniqueId}@test.com`;
-    await pageB.goto('/');
+    await pageB.goto('./');
     await pageB.click('button:has-text("註冊新戶")');
     await pageB.fill('input[placeholder="輸入帳號..."]', `PlayerB_${uniqueId}`);
     await pageB.fill('input[placeholder="example@email.com"]', bEmail);
@@ -216,8 +211,8 @@ test.describe('Monster Arena - Full 14 Scenarios Test Plan', () => {
     await pageB.waitForTimeout(2000);
 
     // Both go to Arena
-    await pageA.click('.bottom-nav-item >> text=競技');
-    await pageB.click('.bottom-nav-item >> text=競技');
+    await pageA.click('button:has-text("競技")');
+    await pageB.click('button:has-text("競技")');
     await pageA.waitForTimeout(2000);
     await pageB.waitForTimeout(2000);
 
@@ -244,14 +239,14 @@ test.describe('Monster Arena - Full 14 Scenarios Test Plan', () => {
 
   // 情境十三、十四：公會與世界王
   test('Scenario 13, 14: Guild & Raid', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
     await page.fill('input[placeholder="輸入帳號..."]', userEmail);
     await page.fill('input[placeholder="••••••••"]', userPass);
     await page.click('button[type="submit"]');
     await page.waitForTimeout(2000);
 
     // 13. Guild
-    await page.click('.bottom-nav-item >> text=公會');
+    await page.click('button:has-text("公會")');
     await page.waitForTimeout(1000);
     await page.fill('input[placeholder="輸入公會名稱..."]', `TestGuild_${uniqueId}`);
     await page.click('button:has-text("創建公會")');
@@ -259,7 +254,7 @@ test.describe('Monster Arena - Full 14 Scenarios Test Plan', () => {
     await page.screenshot({ path: path.join(REPORT_DIR, '13_Guild_Created.png') });
 
     // 14. Raid
-    await page.click('.bottom-nav-item >> text=討伐');
+    await page.click('button:has-text("討伐")');
     await page.waitForTimeout(1000);
     await page.screenshot({ path: path.join(REPORT_DIR, '14_Raid_Screen.png') });
   });

@@ -2,14 +2,8 @@
 
 @layer base {
   body {
-    @apply bg-slate-950 text-slate-200 antialiased overflow-x-hidden selection:bg-cyan-500/30;
+    @apply bg-slate-50 text-slate-900 antialiased overflow-x-hidden selection:bg-cyan-500/30;
     font-family: 'Inter', system-ui, sans-serif;
-    /* Cyberpunk neon mesh background */
-    background-image: 
-      radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-      radial-gradient(at 50% 0%, hsla(225,39%,30%,0.2) 0, transparent 50%), 
-      radial-gradient(at 100% 0%, hsla(339,49%,30%,0.2) 0, transparent 50%);
-    background-attachment: fixed;
   }
 }
 

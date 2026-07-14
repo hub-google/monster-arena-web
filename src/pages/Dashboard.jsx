@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import MonsterPixelArt from '../components/MonsterPixelArt';
 import { api } from '../utils/api';
 import { MONSTER_SPRITES } from '../utils/monsterSprites';
+import ShopModal from '../components/ShopModal';
+import QuestModal from '../components/QuestModal';
 
 const STAGE_NAMES = ['蛋', '蛋', '幼年期', '成長期', '成熟期', '完全體', '究極體'];
 const TYPE_NAMES = ['', '疫苗種 (Vaccine)', '資料種 (Data)', '病毒種 (Virus)'];
@@ -18,7 +20,10 @@ export default function Dashboard({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [showFeedMenu, setShowFeedMenu] = useState(false);
+  const [showHealMenu, setShowHealMenu] = useState(false);
   const [actionEmote, setActionEmote] = useState(null);
+  const [showShop, setShowShop] = useState(false);
+  const [showQuests, setShowQuests] = useState(false);
 
   const monster = activeMonster || monsters[0];
 
@@ -105,52 +110,105 @@ export default function Dashboard({
     }
   }
 
+  let speciesName = '數位蛋';
+  if (monster.life_stage >= 3) {
+    const spriteKey = `${monster.family || 1}_${monster.life_stage}_${monster.type || 0}`;
+    if (MONSTER_SPRITES[spriteKey]) {
+      speciesName = MONSTER_SPRITES[spriteKey].name;
+    } else {
+      speciesName = '未知變種';
+    }
+  } else if (monster.life_stage === 2) {
+    speciesName = '幼年期怪獸';
+  }
+
   const handleRename = async () => {
     const newName = prompt('請輸入新的怪獸名稱（最多20字）：', displayName);
     if (newName !== null && newName.trim() !== '') {
-      await handleAction(api.rename, monster.id, newName);
+      setLoading(true);
+      setMessage('');
+      try {
+        const data = await api.rename(monster.monster_id, newName.trim());
+        setMessage(data.message || '改名成功！');
+        const updated = await api.getMonsters();
+        const updatedMonster = updated.find(m => m.monster_id === monster.monster_id);
+        if (updatedMonster) setActiveMonster(updatedMonster);
+      } catch (err) {
+        setMessage(`❌ ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
   return (
-    <div className="h-full flex flex-col gap-4 animate-fade-in">
+    <div className="flex flex-col gap-4 animate-fade-in pb-10">
       {/* Top Header stats */}
       <div className="glass-card p-4 flex justify-between items-center text-sm font-bold">
         <div className="flex gap-4">
           <span className="text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]">💰 {user.gold}G</span>
           <span className="text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">🔋 {user.stamina}</span>
         </div>
-        <button 
-          onClick={() => setPage('roster')}
-          className="text-cyan-400 hover:text-cyan-300 transition underline text-xs"
-        >
-          切換怪獸 ({monsters.length}/50)
-        </button>
+        <div className="flex gap-2 sm:gap-3 items-center">
+          <button 
+            onClick={() => setShowShop(true)}
+            className="text-amber-400 hover:text-amber-300 transition font-bold text-xs flex items-center gap-1"
+          >
+            🏪 商城
+          </button>
+          <span className="text-slate-600">|</span>
+          <button 
+            onClick={() => setShowQuests(true)}
+            className="text-cyan-400 hover:text-cyan-300 transition font-bold text-xs flex items-center gap-1"
+          >
+            📋 任務
+          </button>
+          <span className="text-slate-600">|</span>
+          <button 
+            onClick={() => setPage('roster')}
+            className="text-cyan-400 hover:text-cyan-300 transition underline text-xs"
+          >
+            切換怪獸 ({monsters.length}/50)
+          </button>
+          <span className="text-slate-600">|</span>
+          <button 
+            onClick={() => setPage('pokedex')}
+            className="text-amber-400 hover:text-amber-300 transition font-bold text-xs flex items-center gap-1"
+          >
+            📖 圖鑑
+          </button>
+        </div>
       </div>
 
       {/* Monster Display Area */}
       <div className="glass-card p-6 flex flex-col items-center relative overflow-hidden">
-        {/* Decorative background elements */}
-        <div className="absolute inset-0 bg-gradient-to-b from-cyan-900/20 to-transparent pointer-events-none"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="flex items-center gap-2 z-10 mb-1">
-          <h2 className="text-2xl font-bold neon-text">{displayName}</h2>
-          <button 
-            onClick={handleRename}
-            className="text-slate-400 hover:text-white transition cursor-pointer"
-            title="改名"
-          >
-            ✏️
-          </button>
+        <div className="flex flex-col items-center gap-1 z-10 mb-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-white">{displayName}</h2>
+            <button 
+              onClick={handleRename}
+              className="text-slate-400 hover:text-slate-700 transition cursor-pointer"
+              title="改名"
+            >
+              ✏️
+            </button>
+          </div>
+          {monster.custom_name && (
+            <div className="text-xs text-slate-500">
+              種族：{speciesName}
+            </div>
+          )}
         </div>
-        <div className="flex gap-2 text-xs font-medium text-slate-400 z-10 mb-6 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-700">
+        
+        <div className="flex gap-2 text-xs font-medium text-slate-300 z-10 mb-6 bg-slate-800 px-3 py-1 rounded-full border border-slate-600">
           <span>G{monster.generation} {STAGE_NAMES[monster.life_stage]}</span>
           <span>•</span>
           <span>{TYPE_NAMES[monster.type] || '無屬性'}</span>
         </div>
 
-        <div className="relative z-10 scale-150 my-8">
+        {/* LCD Screen for Pet */}
+        <div className="relative z-10 scale-150 my-8 bg-slate-900 border-4 border-slate-700 rounded-xl p-4 shadow-inner shadow-slate-950/50">
           <MonsterPixelArt 
             family={monster.family}
             stage={monster.life_stage} 
@@ -172,7 +230,7 @@ export default function Dashboard({
             </div>
             <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
               <div 
-                className={`h-full transition-all duration-500 ${monster.fullness < 30 ? 'bg-rose-500 shadow-[0_0_10px_red]' : 'bg-emerald-500 shadow-[0_0_10px_#10b981]'}`}
+                className={`h-full transition-all duration-500 ${monster.fullness < 30 ? 'bg-rose-500' : 'bg-emerald-500'}`}
                 style={{ width: `${monster.fullness}%` }}
               ></div>
             </div>
@@ -185,7 +243,7 @@ export default function Dashboard({
             </div>
             <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
               <div 
-                className={`h-full transition-all duration-500 ${monster.cleanliness < 40 ? 'bg-amber-500 shadow-[0_0_10px_orange]' : 'bg-cyan-500 shadow-[0_0_10px_cyan]'}`}
+                className={`h-full transition-all duration-500 ${monster.cleanliness < 40 ? 'bg-amber-500' : 'bg-cyan-500'}`}
                 style={{ width: `${monster.cleanliness}%` }}
               ></div>
             </div>
@@ -218,12 +276,20 @@ export default function Dashboard({
         {showFeedMenu ? (
           <div className="grid grid-cols-2 gap-3">
             <button
+              onClick={() => { handleAction(api.feed, monster.monster_id, 'feed_basic'); setShowFeedMenu(false); }}
+              disabled={loading}
+              className="neon-button bg-slate-600 text-white hover:bg-slate-500 py-3 text-sm flex flex-col"
+            >
+              <span>基礎飼料 (免費)</span>
+              <span className="text-[10px] opacity-70 font-normal">無限供應 (大便量增加)</span>
+            </button>
+            <button
               onClick={() => { handleAction(api.feed, monster.monster_id, 'meat_basic'); setShowFeedMenu(false); }}
               disabled={getItemQty('meat_basic') === 0 || loading}
               className="neon-button neon-button-primary py-3 text-sm flex flex-col"
             >
               <span>基本肉</span>
-              <span className="text-[10px] opacity-70 font-normal">庫存: {getItemQty('meat_basic')}</span>
+              <span className="text-[10px] opacity-70 font-normal">庫存: {getItemQty('meat_basic')} {getItemQty('meat_basic') === 0 ? '(請至倉庫商店購買)' : ''}</span>
             </button>
             <button
               onClick={() => { handleAction(api.feed, monster.monster_id, 'meat_premium'); setShowFeedMenu(false); }}
@@ -231,7 +297,7 @@ export default function Dashboard({
               className="neon-button neon-button-primary py-3 text-sm flex flex-col"
             >
               <span>頂級肉</span>
-              <span className="text-[10px] opacity-70 font-normal">庫存: {getItemQty('meat_premium')}</span>
+              <span className="text-[10px] opacity-70 font-normal">庫存: {getItemQty('meat_premium')} {getItemQty('meat_premium') === 0 ? '(請至倉庫商店購買)' : ''}</span>
             </button>
             <button
               onClick={() => { handleAction(api.feed, monster.monster_id, 'energy_drink'); setShowFeedMenu(false); }}
@@ -239,11 +305,36 @@ export default function Dashboard({
               className="neon-button neon-button-success py-3 text-sm flex flex-col"
             >
               <span>能量飲</span>
-              <span className="text-[10px] opacity-70 font-normal">庫存: {getItemQty('energy_drink')}</span>
+              <span className="text-[10px] opacity-70 font-normal">庫存: {getItemQty('energy_drink')} {getItemQty('energy_drink') === 0 ? '(請至倉庫商店購買)' : ''}</span>
             </button>
             <button 
               onClick={() => setShowFeedMenu(false)}
-              className="neon-button bg-slate-700 text-white hover:bg-slate-600 py-3 text-sm"
+              className="neon-button bg-slate-700 text-white hover:bg-slate-600 py-3 text-sm col-span-2"
+            >
+              取消返回
+            </button>
+          </div>
+        ) : showHealMenu ? (
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => { handleAction(api.heal, monster.monster_id, 'heal_basic'); setShowHealMenu(false); }}
+              disabled={loading || !monster.is_sick}
+              className="neon-button bg-slate-600 text-white hover:bg-slate-500 py-3 text-sm flex flex-col"
+            >
+              <span>急救草藥 (免費)</span>
+              <span className="text-[10px] opacity-70 font-normal">無限供應 (扣減20%生命)</span>
+            </button>
+            <button
+              onClick={() => { handleAction(api.heal, monster.monster_id, 'medicine_standard'); setShowHealMenu(false); }}
+              disabled={getItemQty('medicine_standard') === 0 || loading || !monster.is_sick}
+              className="neon-button neon-button-success py-3 text-sm flex flex-col"
+            >
+              <span>基礎特效藥</span>
+              <span className="text-[10px] opacity-70 font-normal">庫存: {getItemQty('medicine_standard')} {getItemQty('medicine_standard') === 0 ? '(請至倉庫商店購買)' : ''}</span>
+            </button>
+            <button 
+              onClick={() => setShowHealMenu(false)}
+              className="neon-button bg-slate-700 text-white hover:bg-slate-600 py-3 text-sm col-span-2"
             >
               取消返回
             </button>
@@ -265,7 +356,7 @@ export default function Dashboard({
               🧹 打掃
             </button>
             <button
-              onClick={() => handleAction(api.heal, monster.monster_id)}
+              onClick={() => setShowHealMenu(true)}
               disabled={loading || !monster.is_sick}
               className="neon-button neon-button-success py-3 text-sm"
             >
@@ -306,6 +397,9 @@ export default function Dashboard({
       <div className="text-center text-xs text-slate-500 mt-2">
         存活時間: {Math.floor(monster.age_days * 10) / 10} 天
       </div>
+
+      {showShop && <ShopModal user={user} onClose={() => setShowShop(false)} refreshData={refreshData} />}
+      {showQuests && <QuestModal user={user} onClose={() => setShowQuests(false)} refreshData={refreshData} />}
     </div>
   );
 }

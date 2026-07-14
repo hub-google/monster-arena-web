@@ -457,7 +457,7 @@ export default function MonsterPixelArt({ family, stage, type, isDead, isSick, i
                   y={rIdx * pixelSize} 
                   width={pixelSize} 
                   height={pixelSize} 
-                  fill="#0f380f" // LCD Active Black Color
+                  fill="#38bdf8" // Bright cyan for dark LCD screen effect
                 />
               );
             }
