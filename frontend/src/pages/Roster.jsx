@@ -112,7 +112,7 @@ export default function Roster({
     return item ? item.quantity : 0;
   };
 
-  const chipsInInventory = inventory.filter(i => i.item_type === 4);
+  const chipsInInventory = inventory.filter(i => i.item_type === 6);
 
   return (
     <div className="h-full flex flex-col gap-4 animate-fade-in">

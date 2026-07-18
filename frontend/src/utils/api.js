@@ -577,6 +577,33 @@ export const api = {
     return { message: `怪獸已成功放生，回歸數碼世界。獲得環保補助金 ${rewardGold}G！` };
   },
 
+  extractChip: async (monster_id) => {
+    const uid = await getUserId();
+    const monRef = doc(null, 'monsters', monster_id);
+    const monSnap = await getDoc(monRef);
+    const monData = monSnap.data();
+    if (monData.is_locked) throw new Error('怪獸已鎖定，無法提取晶片！');
+
+    const chips = ['chip_atk', 'chip_def', 'chip_spd', 'chip_hp'];
+    const item_id = chips[Math.floor(Math.random() * chips.length)];
+
+    const invQ = query(collection(null, 'user_inventory'), where('user_id', '==', uid), where('item_id', '==', item_id));
+    const invSnap = await getDocs(invQ);
+    
+    const t = makeTransaction();
+    if (invSnap.empty) {
+      await insertAndGetId('user_inventory', { user_id: uid, item_id, item_type: 6, quantity: 1 });
+    } else {
+      const invDoc = invSnap.docs[0];
+      await t.update(invDoc.ref, { quantity: invDoc.data().quantity + 1 });
+    }
+    
+    await t.delete(monRef);
+    
+    const ITEM_NAMES = { chip_atk: '攻擊晶片', chip_def: '防禦晶片', chip_spd: '速度晶片', chip_hp: '生命晶片' };
+    return { message: `已成功將怪獸轉化為基因晶片！獲得：${ITEM_NAMES[item_id]} x1` };
+  },
+
   // Freeze a dying monster (cost 100G)
   thawMonster: async (monster_id) => {
     const uid = await getUserId();
@@ -1143,6 +1170,25 @@ export const api = {
       message += ' 新的世界王已出現！';
     }
     return { message, hp: newHp, maxHp: boss.max_hp || 500000 };
+  },
+
+  matchmakeMock: async (mode, level) => {
+    // Generate a mock monster for PVE battles
+    const baseStats = level * 100;
+    return [{
+      monster_id: 'mock_wild_' + Date.now(),
+      name: `野生病毒怪獸 LV${level}`,
+      life_stage: level,
+      combat_hp: baseStats * 2,
+      combat_atk: baseStats,
+      combat_def: baseStats * 0.8,
+      combat_spd: baseStats,
+      gene_hp: baseStats * 2,
+      gene_atk: baseStats,
+      gene_def: baseStats * 0.8,
+      gene_spd: baseStats,
+      is_dead: false,
+    }];
   },
 
   // ─── Social / Chat ────────────────────────────────────────────────────────

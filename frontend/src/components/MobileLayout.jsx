@@ -43,11 +43,11 @@ export default function MobileLayout({ children, page, setPage, user, onLogout, 
   return (
     <div className="w-full max-w-[480px] h-[100dvh] mx-auto bg-slate-950 text-slate-200 relative shadow-2xl flex flex-col overflow-hidden sm:rounded-3xl sm:h-[850px] sm:my-4 border-x border-slate-700/30 sm:border-y">
       {/* Top Header */}
-      <div className="h-12 w-full glass-panel flex items-center justify-between px-4 z-20 sticky top-0">
-        <span className="text-cyan-400 font-bold tracking-widest text-lg neon-text">MONSTER ARENA</span>
-        <div className="flex items-center gap-2">
+      <div className="h-12 w-full glass-panel flex items-center justify-between px-3 z-20 sticky top-0">
+        <span className="text-cyan-400 font-bold tracking-widest text-sm sm:text-lg neon-text truncate mr-2">MONSTER ARENA</span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {user && (
-            <span className="text-xs text-slate-400 font-medium truncate max-w-[80px]">
+            <span className="hidden sm:inline-block text-xs text-slate-400 font-medium truncate max-w-[80px]">
               {user.username}
             </span>
           )}
