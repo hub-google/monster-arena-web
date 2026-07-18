@@ -28,7 +28,7 @@ export default function Dashboard({
   // Sleep: forced by item (sleep_until > now) OR by night time (22:00-07:00)
   const now = new Date();
   const hour = now.getHours();
-  const isNightTime = hour >= 22 || hour < 7;
+  const isNightTime = hour >= 22 || hour < 6; // 22:00 ~ 06:00 per docs
   const isForcedSleep = monster?.sleep_until && new Date(monster.sleep_until) > now;
   const [localSleeping, setLocalSleeping] = useState(false);
   const isSleeping = isForcedSleep || isNightTime || localSleeping;

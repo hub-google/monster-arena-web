@@ -272,18 +272,18 @@ export const api = {
           if (m.life_stage === 0) { m.life_stage = 1; }
           if (!m.family) { m.family = Math.floor(Math.random() * 7) + 1; }
 
-          if (m.life_stage === 1 && m.age_days >= 0.00035) { m.life_stage = 2; }
-          else if (m.life_stage === 2 && m.age_days >= 0.5) { m.life_stage = 3; m.type = Math.floor(Math.random() * 3) + 1; }
-          else if (m.life_stage === 3 && m.age_days >= 2) {
+          if (m.life_stage === 1 && m.age_days >= 0.000347) { m.life_stage = 2; } // 30 seconds
+          else if (m.life_stage === 2 && m.age_days >= 0.5) { m.life_stage = 3; m.type = Math.floor(Math.random() * 3) + 1; } // 12 hours
+          else if (m.life_stage === 3 && m.age_days >= 2) { // 48 hours
             if (m.train_count >= 15 && m.neglect_count <= 2) { m.type = 1; m.life_stage = 4; }
             else if (m.train_count >= 5 && m.neglect_count <= 5) { m.type = 2; m.life_stage = 4; }
             else { m.type = 3; m.life_stage = 4; }
           }
-          else if (m.life_stage === 4 && m.age_days >= 4) {
+          else if (m.life_stage === 4 && m.age_days >= 4) { // 96 hours
             const winRate = m.battles > 0 ? m.wins / m.battles : 0;
-            if (m.battles >= 30 && winRate >= 0.6) { m.life_stage = 5; }
-            else if (m.battles >= 15 && winRate >= 0.4) { m.life_stage = 5; }
-            else { m.life_stage = 5; m.type = 3; }
+            if (m.battles >= 30 && winRate >= 0.6 && m.neglect_count <= 3) { m.type = 1; m.life_stage = 5; }
+            else if (m.battles >= 15 && winRate >= 0.4 && m.neglect_count <= 6) { m.type = 2; m.life_stage = 5; }
+            else { m.type = 3; m.life_stage = 5; }
           }
 
           // Aging Decline (30 days peak)
@@ -429,12 +429,10 @@ export const api = {
       else if (item_id === 'meat_premium') newFullness = Math.min(100, mon.fullness + 60);
       else if (item_id === 'energy_drink') newFullness = Math.min(100, mon.fullness + 30);
       else if (item_id === 'expired_milk') {
-        newFullness = Math.min(100, mon.fullness + 15);
+        newFullness = Math.min(100, mon.fullness + 10);
         newCleanliness = Math.max(0, mon.cleanliness - 10);
-        // expired milk has 70% chance to cause sickness, increases neglect count
-        if (Math.random() < 0.7) {
-          await updateDoc(monRef, { is_sick: true, sick_time_start: now.toISOString(), neglect_count: (mon.neglect_count || 0) + 1 });
-        }
+        // expired milk ALWAYS causes sickness - must be treated by player
+        await updateDoc(monRef, { is_sick: true, sick_time_start: now.toISOString(), neglect_count: (mon.neglect_count || 0) + 1 });
       }
       else if (item_id === 'sleeping_pill') {
         // Force monster to sleep for 8 hours
