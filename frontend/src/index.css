@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --color-monster-bg: #0d1117;
+  --color-monster-screen: #0a192f;
+  --color-monster-neon: #00ffcc;
+  --color-monster-neon-hover: #33ffdd;
+  --color-monster-danger: #ff3366;
+  --color-monster-warn: #ffcc00;
+  
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+@layer base {
+  :root {
+    background-color: var(--color-monster-bg);
+    color: #e2e8f0;
+  }
+  
+  body {
+    @apply m-0 min-h-screen font-sans antialiased text-slate-200 bg-slate-900;
+    /* Add a subtle grid background for the tech feel */
+    background-image: 
+      linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  /* Glassmorphism utility classes */
+  .glass-panel {
+    @apply bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-xl shadow-xl;
+  }
+  
+  /* LCD Screen styling */
+  .lcd-screen {
+    @apply bg-[#0a192f] border-2 border-slate-700 rounded-lg shadow-inner overflow-hidden relative;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+  }
+  
+  .lcd-text {
+    @apply text-[#00ffcc] font-mono;
+    text-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+  }
+  
+  .text-shadow-neon {
+    text-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+  }
+
+  /* Animations */
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  .animate-blink {
+    animation: blink 1s step-end infinite;
+  }
+}
