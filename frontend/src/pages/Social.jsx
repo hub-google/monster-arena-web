@@ -86,6 +86,33 @@ export default function Social({ user, activePlayers, refreshData, setPage }) {
     setLoading(false);
   };
 
+  const handleAcceptRequest = async (friendId) => {
+    setLoading(true);
+    try {
+      const res = await api.acceptFriend(friendId);
+      setMessage(res.message);
+      await loadFriends();
+    } catch (err) {
+      setMessage(`❌ ${err.message}`);
+    }
+    setLoading(false);
+  };
+
+  const handleDeleteOrDecline = async (friendId, actionType = 'delete') => {
+    if (actionType === 'delete' && !window.confirm('確定要刪除該好友嗎？')) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api.deleteFriend(friendId);
+      setMessage(res.message);
+      await loadFriends();
+    } catch (err) {
+      setMessage(`❌ ${err.message}`);
+    }
+    setLoading(false);
+  };
+
   const handleSendChat = async () => {
     if (!chatMessage.trim()) return;
     try {
@@ -198,47 +225,106 @@ export default function Social({ user, activePlayers, refreshData, setPage }) {
             </div>
           </div>
           
-          <div className="glass-card p-4 flex flex-col gap-2 flex-1">
-            <h3 className="text-slate-300 font-bold text-sm mb-2 border-b border-slate-700 pb-2">好友列表 ({friendsList.length})</h3>
-            <div className="flex-1 overflow-y-auto space-y-3 pb-4">
-              {loading ? (
-                <p className="text-center text-slate-400 py-10">載入中...</p>
-              ) : friendsList.length === 0 ? (
-                <span className="text-center italic mt-4 text-slate-500 block">尚無好友。前往世界頻道認識新朋友吧！</span>
-              ) : (
-                friendsList.map(f => (
-                  <div key={f.friend_id} className="flex justify-between items-center p-3 bg-slate-800/50 border border-slate-700/50 rounded-lg">
-                    <span className="font-bold text-white flex items-center gap-2">🤝 {f.friend_username || f.friend_name}</span>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs font-bold px-2 py-1 rounded ${f.status === 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                        {f.status === 0 ? '🕒 待確認' : '✅ 已成為好友'}
-                      </span>
-                      {f.is_request && (
-                        <button onClick={() => api.acceptFriend(f.friend_id).then(loadFriends)} className="px-3 py-1 bg-emerald-600 text-white font-bold rounded-md hover:bg-emerald-500 transition">同意</button>
-                      )}
-                      {f.status === 1 && (
+          <div className="flex-1 flex flex-col gap-4 overflow-y-auto">
+            {/* 1. 好友申請 (Incoming Requests) */}
+            <div className="glass-card p-4 flex flex-col gap-2">
+              <h3 className="text-amber-400 font-bold text-sm mb-2 border-b border-slate-700 pb-2">
+                ✉️ 好友申請 ({friendsList.filter(f => f.is_request && f.status === 0).length})
+              </h3>
+              <div className="space-y-3">
+                {loading ? (
+                  <p className="text-center text-slate-400 text-xs py-2">載入中...</p>
+                ) : friendsList.filter(f => f.is_request && f.status === 0).length === 0 ? (
+                  <span className="text-center italic text-xs text-slate-500 block py-2">目前沒有新的好友申請。</span>
+                ) : (
+                  friendsList.filter(f => f.is_request && f.status === 0).map(f => (
+                    <div key={f.friend_id} className="flex justify-between items-center p-3 bg-slate-800/40 border border-slate-700/40 rounded-lg">
+                      <span className="font-bold text-white flex items-center gap-2">👤 {f.friend_username || f.friend_name}</span>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleAcceptRequest(f.friend_id)} 
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition"
+                        >
+                          同意
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteOrDecline(f.friend_id, 'decline')} 
+                          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-xs transition"
+                        >
+                          拒絕
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* 2. 好友列表 (Confirmed Friends) */}
+            <div className="glass-card p-4 flex flex-col gap-2 flex-1 min-h-[200px]">
+              <h3 className="text-emerald-400 font-bold text-sm mb-2 border-b border-slate-700 pb-2">
+                🤝 好友名單 ({friendsList.filter(f => f.status === 1).length})
+              </h3>
+              <div className="flex-1 overflow-y-auto space-y-3 pb-4">
+                {loading ? (
+                  <p className="text-center text-slate-400 py-10">載入中...</p>
+                ) : friendsList.filter(f => f.status === 1).length === 0 ? (
+                  <span className="text-center italic mt-4 text-slate-500 block">尚無好友。前往大廳或世界頻道認識新朋友吧！</span>
+                ) : (
+                  friendsList.filter(f => f.status === 1).map(f => (
+                    <div key={f.friend_id} className="flex justify-between items-center p-3 bg-slate-800/50 border border-slate-700/50 rounded-lg">
+                      <span className="font-bold text-white flex items-center gap-2">🤝 {f.friend_username || f.friend_name}</span>
+                      <div className="flex items-center gap-2">
                         <button 
                           onClick={() => {
                              setPrivateChatTarget(f);
                              setSubTab('chat');
                              setChatMessage('');
                           }}
-                          className="text-[10px] bg-indigo-700 px-3 py-1.5 rounded hover:bg-indigo-600 transition text-white"
+                          className="text-xs bg-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-600 transition text-white font-bold"
                         >
                           私聊
                         </button>
-                      )}
+                        <button 
+                          onClick={() => api.giftStamina(f.friend_id).then(() => setMessage('已發送體力給 ' + (f.friend_username || f.friend_name))).catch(e => setMessage(e.message))} 
+                          className="text-xs bg-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-600 transition text-white font-bold"
+                        >
+                          送體力
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteOrDecline(f.friend_id, 'delete')} 
+                          className="text-xs bg-rose-900/50 border border-rose-500/30 px-3 py-1.5 rounded-lg hover:bg-rose-600 transition text-rose-400 hover:text-white font-bold"
+                        >
+                          刪除
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* 3. 等待確認的申請 (Sent Pending Requests) - Optional section */}
+            {friendsList.filter(f => !f.is_request && f.status === 0).length > 0 && (
+              <div className="glass-card p-4 flex flex-col gap-2">
+                <h3 className="text-slate-400 font-bold text-sm mb-2 border-b border-slate-700 pb-2">
+                  ⏳ 已發送的好友申請 ({friendsList.filter(f => !f.is_request && f.status === 0).length})
+                </h3>
+                <div className="space-y-3">
+                  {friendsList.filter(f => !f.is_request && f.status === 0).map(f => (
+                    <div key={f.friend_id} className="flex justify-between items-center p-3 bg-slate-800/20 border border-slate-700/20 rounded-lg">
+                      <span className="text-slate-300 text-sm">👤 {f.friend_username || f.friend_name} (待確認)</span>
                       <button 
-                        onClick={() => api.giftStamina(f.friend_id).then(() => setMessage('已發送體力給 ' + (f.friend_username || f.friend_name))).catch(e => setMessage(e.message))} 
-                        className="text-[10px] bg-slate-700 px-3 py-1.5 rounded hover:bg-slate-600 transition text-white"
+                        onClick={() => handleDeleteOrDecline(f.friend_id, 'cancel')} 
+                        className="text-xs bg-slate-800 border border-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-700 transition text-slate-400 hover:text-white"
                       >
-                        送體力
+                        取消申請
                       </button>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

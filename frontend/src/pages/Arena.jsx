@@ -264,7 +264,7 @@ export default function Arena({
               {battleState.teamA && battleState.teamA.length > 1 && (
                 <div className="flex gap-1 mb-2">
                   {battleState.teamA.map((m, idx) => (
-                    <div key={idx} className={`w-3 h-3 rounded-full border border-slate-700 \${idx === battleState.mA_Index ? 'bg-cyan-500 shadow-[0_0_5px_#06b6d4]' : idx < battleState.mA_Index ? 'bg-slate-800' : 'bg-slate-500'}`} title={m.name}></div>
+                    <div key={idx} className={`w-3 h-3 rounded-full border border-slate-700 ${idx === battleState.mA_Index ? 'bg-cyan-500 shadow-[0_0_5px_#06b6d4]' : idx < battleState.mA_Index ? 'bg-slate-800' : 'bg-slate-500'}`} title={m.name}></div>
                   ))}
                 </div>
               )}
@@ -312,7 +312,7 @@ export default function Arena({
               {battleState.teamB && battleState.teamB.length > 1 && (
                 <div className="flex gap-1 mb-2">
                   {battleState.teamB.map((m, idx) => (
-                    <div key={idx} className={`w-3 h-3 rounded-full border border-slate-700 \${idx === battleState.mB_Index ? 'bg-rose-500 shadow-[0_0_5px_#f43f5e]' : idx < battleState.mB_Index ? 'bg-slate-800' : 'bg-slate-500'}`} title={m.name}></div>
+                    <div key={idx} className={`w-3 h-3 rounded-full border border-slate-700 ${idx === battleState.mB_Index ? 'bg-rose-500 shadow-[0_0_5px_#f43f5e]' : idx < battleState.mB_Index ? 'bg-slate-800' : 'bg-slate-500'}`} title={m.name}></div>
                   ))}
                 </div>
               )}
@@ -414,9 +414,14 @@ export default function Arena({
             </select>
             <button 
               onClick={async () => {
+                const myMonster = activeMonster || monsters[0];
+                if (!myMonster || myMonster.is_dead) {
+                  setMessage('❌ 請先選擇一隻存活的怪獸作為出戰怪獸！');
+                  return;
+                }
                 try {
                   const mB = await api.matchmakeMock('mock', wildLevel);
-                  handleAcceptChallenge(activeMonster || monsters[0], mB);
+                  handleAcceptChallenge(myMonster, mB);
                 } catch (e) { setMessage(e.message); }
               }} 
               className="w-full mt-auto neon-button neon-button-danger py-2 text-sm font-bold"
@@ -459,8 +464,8 @@ export default function Arena({
                   className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500"
                 >
                   <option value="">選擇一位好友...</option>
-                  {friends.map(f => (
-                    <option key={f.friend_id} value={f.friend_id}>{f.friend_name}</option>
+                  {friends.filter(f => f.status === 1).map(f => (
+                    <option key={f.friend_id} value={f.friend_id}>{f.friend_username || f.friend_name}</option>
                   ))}
                 </select>
                 <button onClick={() => handleChallengePlayer(selectedFriend)} className="neon-button neon-button-primary px-4 py-2 text-sm font-bold">對戰</button>

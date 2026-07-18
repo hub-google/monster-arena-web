@@ -78,6 +78,17 @@ export const friendsApi = {
     return { message: '已同意好友申請！' };
   },
 
+  deleteFriend: async (targetId) => {
+    const uid = await getUserId();
+    const { error } = await supabase
+      .from('friends')
+      .delete()
+      .or(`and(user_id.eq.${uid},friend_uid.eq.${targetId}),and(user_id.eq.${targetId},friend_uid.eq.${uid})`);
+      
+    if (error) throw new Error(error.message);
+    return { message: '已刪除好友/拒絕申請！' };
+  },
+
   giftStamina: async (friendId) => {
     const uid = await getUserId();
     const today = new Date().toISOString().split('T')[0];

@@ -516,7 +516,14 @@ export const api = {
     });
 
     api.trackQuestProgress('train', 1).catch(e => console.warn(e));
-    return { message: `訓練成功！消耗 10 體力，${boostStat} 提升了！` };
+    const statNames = {
+      combat_hp: '生命值',
+      combat_atk: '攻擊力',
+      combat_def: '防禦力',
+      combat_spd: '速度'
+    };
+    const chineseStat = statNames[boostStat] || boostStat;
+    return { message: `訓練成功！消耗 10 體力，${chineseStat} 提升了！` };
   },
 
   evolve: async (monster_id) => {
