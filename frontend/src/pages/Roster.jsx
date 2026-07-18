@@ -3,6 +3,14 @@ import { api } from '../utils/api';
 
 const STAGE_NAMES = ['蛋', '蛋', '幼年期', '成長期', '成熟期', '完全體', '究極體'];
 
+const ITEM_NAMES = { 
+  chip_atk: '攻擊晶片', 
+  chip_def: '防禦晶片', 
+  chip_spd: '速度晶片', 
+  chip_hp: '生命晶片',
+  chip_extractor: '晶片提取器'
+};
+
 export default function Roster({ 
   user, 
   monsters, 
@@ -112,7 +120,7 @@ export default function Roster({
     return item ? item.quantity : 0;
   };
 
-  const chipsInInventory = inventory.filter(i => i.item_type === 6);
+  const chipsInInventory = inventory.filter(i => (i.item_type === 6 || i.item_id.startsWith('chip_')) && i.item_id !== 'chip_extractor');
 
   return (
     <div className="h-full flex flex-col gap-4 animate-fade-in">
@@ -270,7 +278,7 @@ export default function Roster({
                 <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4 flex flex-col items-center justify-between min-h-[120px]">
                   <span className="text-xs text-slate-400">插槽 1 (成熟期)</span>
                   <span className={`font-bold text-center w-full my-2 ${selectedMonster.chip_slot_1 ? 'text-amber-400' : 'text-slate-600'}`}>
-                    {selectedMonster.chip_slot_1 || '【空位】'}
+                    {ITEM_NAMES[selectedMonster.chip_slot_1] || selectedMonster.chip_slot_1 || '【空位】'}
                   </span>
                   {selectedMonster.chip_slot_1 && (
                     <button
@@ -285,7 +293,7 @@ export default function Roster({
                 <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4 flex flex-col items-center justify-between min-h-[120px]">
                   <span className="text-xs text-slate-400">插槽 2 (完全體)</span>
                   <span className={`font-bold text-center w-full my-2 ${selectedMonster.chip_slot_2 ? 'text-amber-400' : 'text-slate-600'}`}>
-                    {selectedMonster.chip_slot_2 || '【空位】'}
+                    {ITEM_NAMES[selectedMonster.chip_slot_2] || selectedMonster.chip_slot_2 || '【空位】'}
                   </span>
                   {selectedMonster.chip_slot_2 && (
                     <button
@@ -314,7 +322,7 @@ export default function Roster({
                     <option value="">--請選擇背包內的晶片--</option>
                     {chipsInInventory.map(c => (
                       <option key={c.inventory_id} value={c.item_id}>
-                        {c.item_id} (庫存: {c.quantity})
+                        {ITEM_NAMES[c.item_id] || c.item_id} (庫存: {c.quantity})
                       </option>
                     ))}
                   </select>

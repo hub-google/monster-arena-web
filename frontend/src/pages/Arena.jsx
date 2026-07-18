@@ -155,54 +155,87 @@ export default function Arena({
 
   if (raidBossState && raidBossState.active) {
     return (
-      <div className="h-full flex flex-col gap-4 animate-fade-in relative z-10">
-        <div className="absolute inset-0 bg-amber-900/10 pointer-events-none rounded-2xl"></div>
+      <div className="flex flex-col h-full bg-black relative overflow-hidden p-6 text-center items-center justify-center font-serif">
+        {/* Particle/Background effects */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-900/40 via-black to-black z-0"></div>
+        <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] animate-[pulse_4s_ease-in-out_infinite] z-0"></div>
+        <div className="absolute top-0 left-0 w-full h-full border-[10px] border-red-900/30 z-10 pointer-events-none mix-blend-overlay"></div>
         
-        <div className="glass-card p-4 text-center border-amber-500/30">
-          <h2 className="text-xl font-bold text-amber-500 tracking-widest">👑 世界王討伐 👑</h2>
+        {/* Title */}
+        <div className="z-20 mb-12 relative w-full flex flex-col items-center">
+          <div className="absolute top-1/2 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-500/50 to-transparent -z-10"></div>
+          <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-rose-400 via-red-600 to-red-900 drop-shadow-[0_0_20px_rgba(255,0,0,1)] tracking-[0.5em] uppercase">
+            啟示錄獸
+          </h2>
+          <span className="text-red-500/80 text-xs tracking-[1em] mt-2 uppercase font-mono">Apocalymon</span>
+        </div>
+        
+        {/* Boss Character & HP Bar */}
+        <div className="relative z-20 w-full max-w-md mx-auto mb-16 flex flex-col items-center">
+           {/* Boss Image/Sprite Wrapper */}
+           <div className={`relative mb-12 flex justify-center items-center w-48 h-48 rounded-full border-4 border-red-900/50 shadow-[0_0_50px_rgba(220,38,38,0.3)] bg-slate-950 transition-transform duration-75 ${raidBossState.animating ? 'scale-110 -translate-y-2 drop-shadow-[0_0_80px_rgba(255,0,0,0.8)]' : 'scale-100 hover:scale-105'} animate-[float_4s_ease-in-out_infinite]`}>
+             <div className="absolute inset-0 rounded-full border-2 border-red-500/30 animate-[spin_10s_linear_infinite] border-dashed"></div>
+             <span className="text-7xl drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">👿</span>
+           </div>
+           
+           {/* HP Bar */}
+           <div className="w-full px-4">
+               <div className="flex justify-between items-end text-xs mb-2 px-1">
+                   <div className="flex flex-col items-start">
+                     <span className="text-red-400 font-bold tracking-widest text-[10px]">WORLD BOSS</span>
+                     <span className="text-white font-mono text-sm">HP</span>
+                   </div>
+                   <span className="text-white font-mono font-bold text-lg drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]">
+                     {Math.round(raidBossState.hp).toLocaleString()} <span className="text-red-500/70 text-sm">/ {Math.round(raidBossState.maxHp).toLocaleString()}</span>
+                   </span>
+               </div>
+               
+               <div className="relative h-6 bg-slate-950 rounded-sm border-2 border-slate-800 overflow-hidden shadow-[0_0_15px_rgba(220,38,38,0.2)]">
+                   {/* Background track */}
+                   <div className="absolute inset-0 bg-red-950/30"></div>
+                   
+                   {/* HP Fill */}
+                   <div 
+                     className="relative h-full bg-gradient-to-r from-red-800 via-red-500 to-amber-400 transition-all duration-[1500ms] ease-out" 
+                     style={{ width: `${Math.max(0, (raidBossState.hp / raidBossState.maxHp) * 100)}%` }}
+                   >
+                     {/* Gloss effect */}
+                     <div className="absolute top-0 left-0 w-full h-1/2 bg-white/20"></div>
+                   </div>
+               </div>
+           </div>
         </div>
 
-        <div className="glass-card p-6 flex flex-col items-center justify-center gap-6 relative overflow-hidden flex-1">
-          {/* Boss */}
-          <div className="flex flex-col items-center w-full z-10">
-             <div className="text-xl font-black text-amber-400 mb-2">系統病毒母體</div>
-             <div className={`scale-[2] my-8 transition-transform duration-100 ${raidBossState.animating ? 'animate-pulse' : 'animate-shake'}`}>
-               <MonsterPixelArt family="dragon" stage={6} type="dark" isStatic={true} />
-             </div>
-             
-             {/* HP Bar */}
-             <div className="w-full max-w-md mt-4">
-               <div className="flex justify-between text-xs mb-1">
-                 <span className="text-amber-400 font-bold">BOSS HP</span>
-                 <span className="text-white">{Math.round(raidBossState.hp)} / {Math.round(raidBossState.maxHp)}</span>
-               </div>
-               <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
-                 <div className="h-full bg-gradient-to-r from-red-600 to-amber-500 transition-all duration-1000" style={{width:`${(raidBossState.hp/raidBossState.maxHp)*100 || 100}%`}}></div>
-               </div>
-             </div>
-          </div>
-
-          {/* Player Monster attacking */}
-          <div className={`absolute bottom-10 transition-all duration-500 z-20 ${raidBossState.animating ? 'translate-y-20 opacity-0' : '-translate-y-20 opacity-100'}`}>
-            <div className="flex flex-col items-center">
-               <div className="scale-125 mb-2">
-                 <MonsterPixelArt family={activeMonster.family} stage={activeMonster.life_stage} type={activeMonster.type} isStatic={true} />
-               </div>
-               {!raidBossState.animating && (
-                 <div className="absolute -top-10 text-3xl font-black text-red-500 animate-bounce-slight drop-shadow-[0_0_10px_rgba(239,68,68,0.8)] whitespace-nowrap">
-                   -{raidBossState.damage}
+        {/* Damage Result Popover */}
+        <div className={`absolute inset-x-0 bottom-12 flex justify-center transition-all duration-700 z-30 ${raidBossState.animating ? 'opacity-0 translate-y-16' : 'opacity-100 translate-y-0'}`}>
+             <div className="glass-card bg-slate-900/90 border-red-500/40 p-8 shadow-[0_0_50px_rgba(220,38,38,0.5)] min-w-[320px] backdrop-blur-xl rounded-xl">
+                 
+                 <div className="flex flex-col items-center mb-6">
+                   <span className="text-slate-400 text-xs tracking-[0.3em] uppercase mb-2">Total Damage</span>
+                   <div className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-red-400 drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] font-mono">
+                    {!raidBossState.animating && (
+                      <span className="animate-[bounce_0.5s_ease-out]">
+                          {raidBossState.damage.toLocaleString()}
+                      </span>
+                    )}
+                   </div>
                  </div>
-               )}
-            </div>
-          </div>
-          
-          {/* Message */}
-          {!raidBossState.animating && (
-             <div className="mt-8 text-center bg-slate-900/90 p-4 rounded-xl border border-slate-700 z-30 w-full animate-fade-in backdrop-blur-sm">
-               <p className="text-amber-300 font-bold mb-2 whitespace-pre-line">{raidBossState.message}</p>
-               <button onClick={() => setRaidBossState(null)} className="mt-4 neon-button neon-button-warning py-2 px-8 font-bold">返回競技場</button>
+                 
+                 {!raidBossState.animating && (
+                   <div className="flex flex-col gap-4">
+                       <p className="text-amber-400 font-bold text-sm bg-amber-950/50 py-3 px-4 rounded border border-amber-900/50 shadow-inner whitespace-pre-line">
+                         {raidBossState.message}
+                       </p>
+                       <button 
+                         onClick={() => setRaidBossState(null)} 
+                         className="group relative w-full py-4 bg-slate-800 hover:bg-red-900 border border-slate-600 hover:border-red-500 transition-all duration-300 rounded uppercase tracking-widest font-bold text-slate-300 hover:text-white overflow-hidden"
+                       >
+                         <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
+                         返回競技場
+                       </button>
+                   </div>
+                 )}
              </div>
-          )}
         </div>
       </div>
     );

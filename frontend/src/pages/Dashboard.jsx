@@ -30,8 +30,9 @@ export default function Dashboard({
   const hour = now.getHours();
   const isNightTime = hour >= 22 || hour < 6; // 22:00 ~ 06:00 per docs
   const isForcedSleep = monster?.sleep_until && new Date(monster.sleep_until) > now;
+  const isForcedAwake = monster?.awake_until && new Date(monster.awake_until) > now;
   const [localSleeping, setLocalSleeping] = useState(false);
-  const isSleeping = isForcedSleep || isNightTime || localSleeping;
+  const isSleeping = isForcedSleep || (!isForcedAwake && isNightTime) || localSleeping;
 
   const handleAction = async (actionFn, ...args) => {
     setLoading(true);
@@ -125,7 +126,9 @@ export default function Dashboard({
       speciesName = '未知變種';
     }
   } else if (monster.life_stage === 2) {
-    speciesName = '幼年期怪獸';
+    const FAMILY_NAMES = ['', '龍族', '獸族', '惡魔族', '機械族', '植物族', '水棲族', '鳥族', '特殊'];
+    const fName = FAMILY_NAMES[monster.family || 1] || '未知族';
+    speciesName = `${fName}幼年期`;
   }
 
   const handleRename = async () => {
@@ -214,9 +217,12 @@ export default function Dashboard({
               ✏️
             </button>
           </div>
-          {monster.custom_name && (
-            <div className="text-xs text-slate-500">
-              種族：{speciesName}
+          <div className="text-xs text-slate-500">
+            種族：{speciesName}
+          </div>
+          {isForcedAwake && (
+            <div className="text-xs text-rose-400 font-bold flex items-center gap-1 animate-pulse">
+              🔔 鬧鐘強制喚醒中
             </div>
           )}
         </div>
@@ -228,7 +234,7 @@ export default function Dashboard({
         </div>
 
         {/* LCD Screen for Pet */}
-        <div className={`relative z-10 my-8 w-full max-w-[360px] h-[200px] bg-slate-900 border-4 ${monster.is_frozen ? 'border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.6)]' : 'border-slate-700'} rounded-xl flex items-center justify-center overflow-hidden shadow-inner shadow-slate-950/50 transition-colors duration-1000 ${isSleeping ? 'brightness-[0.3]' : ''}`}>
+        <div className={`relative z-10 my-8 w-full max-w-[360px] h-[200px] bg-slate-900 border-4 ${monster.is_frozen ? 'border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.6)]' : isForcedAwake ? 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'border-slate-700'} rounded-xl flex items-center justify-center overflow-hidden shadow-inner shadow-slate-950/50 transition-colors duration-1000 ${isSleeping ? 'brightness-[0.3]' : ''}`}>
           {monster.is_frozen ? (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-cyan-950/80 backdrop-blur-[2px]">
               <span className="text-6xl animate-pulse drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">❄️</span>
@@ -298,6 +304,25 @@ export default function Dashboard({
         <div className="glass-card py-2 flex flex-col items-center">
           <span className="text-[10px] text-slate-400">SPD</span>
           <span className="font-bold text-emerald-400">{Math.round(monster.combat_spd)}</span>
+        </div>
+      </div>
+      
+      {/* Evolution Parameters summary */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="glass-card py-2 flex flex-col items-center">
+          <span className="text-[10px] text-slate-400">培育失誤</span>
+          <span className="font-bold text-amber-500">{monster.neglect_count || 0}</span>
+        </div>
+        <div className="glass-card py-2 flex flex-col items-center">
+          <span className="text-[10px] text-slate-400">訓練次數</span>
+          <span className="font-bold text-emerald-500">{monster.train_count || 0}</span>
+        </div>
+        <div className="glass-card py-2 flex flex-col items-center">
+          <span className="text-[10px] text-slate-400">戰鬥勝率</span>
+          <span className="font-bold text-purple-400">
+            {monster.battles > 0 ? Math.round((monster.wins || 0) / monster.battles * 100) : 0}%
+            <span className="text-[9px] text-slate-500 ml-1">({monster.battles}戰)</span>
+          </span>
         </div>
       </div>
 

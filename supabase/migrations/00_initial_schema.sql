@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS users (
   email text UNIQUE NOT NULL,
   gold integer DEFAULT 500,
   premium_gems integer DEFAULT 0,
-  stamina integer DEFAULT 100,
-  max_stamina integer DEFAULT 100,
+  stamina integer DEFAULT 500,
+  max_stamina integer DEFAULT 500,
   last_login_at timestamp with time zone DEFAULT now(),
   stamina_updated_at timestamp with time zone DEFAULT now(),
   created_at timestamp with time zone DEFAULT now()
