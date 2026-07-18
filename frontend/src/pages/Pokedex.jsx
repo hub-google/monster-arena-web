@@ -22,9 +22,9 @@ export default function Pokedex({ setPage }) {
   }, [monstersList, filterStage]);
 
   return (
-    <div className="flex flex-col h-full animate-fade-in relative">
+    <div className="flex flex-col animate-fade-in relative" style={{height: '100%', maxHeight: '100%'}}>
       {/* Header */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-4 flex-shrink-0">
         <h2 className="text-xl font-bold neon-text">📖 怪獸圖鑑</h2>
         <button 
           onClick={() => setPage('dashboard')}
@@ -35,7 +35,7 @@ export default function Pokedex({ setPage }) {
       </div>
 
       {/* Filter */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-2 hide-scrollbar">
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-2 hide-scrollbar flex-shrink-0">
         <button 
           onClick={() => setFilterStage('all')}
           className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filterStage === 'all' ? 'bg-amber-500 text-slate-900' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}
@@ -54,7 +54,7 @@ export default function Pokedex({ setPage }) {
       </div>
 
       {/* Grid */}
-      <div className="flex-1 overflow-y-auto pb-10 pr-1">
+      <div className="overflow-y-auto pb-4 pr-1" style={{flex: '1 1 0', minHeight: 0}}>
         <div className="grid grid-cols-2 gap-3">
           {filteredMonsters.map((monster, index) => (
             <div key={`${monster.family}_${monster.stage}_${monster.type}_${index}`} className="glass-card p-3 flex flex-col items-center gap-2 relative">

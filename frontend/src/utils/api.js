@@ -393,6 +393,7 @@ export const api = {
 
     let newFullness = mon.fullness;
     let newCleanliness = mon.cleanliness;
+    const now = new Date();
 
     if (item_id === 'feed_basic') {
       newFullness = Math.min(100, mon.fullness + 10);
@@ -430,13 +431,21 @@ export const api = {
       else if (item_id === 'expired_milk') {
         newFullness = Math.min(100, mon.fullness + 15);
         newCleanliness = Math.max(0, mon.cleanliness - 10);
+        // expired milk has 70% chance to cause sickness, increases neglect count
+        if (Math.random() < 0.7) {
+          await updateDoc(monRef, { is_sick: true, sick_time_start: now.toISOString(), neglect_count: (mon.neglect_count || 0) + 1 });
+        }
       }
       else if (item_id === 'sleeping_pill') {
-        // Handled specially by Dashboard — just restore fullness a bit
-        newFullness = Math.min(100, mon.fullness + 5);
+        // Force monster to sleep for 8 hours
+        const sleepUntil = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+        await updateDoc(monRef, { sleep_until: sleepUntil });
+        return { message: '怪獸服下安眠藥，沉沉睡去了...（強制睡眠 8 小時）' };
       }
       else if (item_id === 'alarm_clock') {
-        newFullness = Math.min(100, mon.fullness + 5);
+        // Wake up monster from forced sleep
+        await updateDoc(monRef, { sleep_until: null });
+        return { message: '鬧鐘響起！怪獸從睡夢中驚醒了！' };
       }
     }
 
@@ -630,21 +639,32 @@ export const api = {
     const monRef = doc(null, 'monsters', monster_id);
     const monSnap = await getDoc(monRef);
     const mon = monSnap.data();
-    if (slot === 1 && mon.life_stage < 3) throw new Error('第一插槽需成熟期才解鎖');
-    if (slot === 2 && mon.life_stage < 4) throw new Error('第二插槽需完全體才解鎖');
+    // No life_stage restriction — any monster can equip chips
 
     const invQ = query(collection(null, 'user_inventory'), where('user_id', '==', uid), where('item_id', '==', chip_id));
     const invSnap = await getDocs(invQ);
     if (invSnap.empty || invSnap.docs[0].data().quantity <= 0) throw new Error('沒有此晶片！');
 
-    const chipVal = 5;
+    // Determine chip bonus based on chip type
+    const CHIP_BONUS = {
+      chip_atk: { stat: 'combat_atk', val: 50 },
+      chip_def: { stat: 'combat_def', val: 50 },
+      chip_spd: { stat: 'combat_spd', val: 50 },
+      chip_hp:  { stat: 'combat_hp',  val: 200 },
+    };
+    const bonus = CHIP_BONUS[chip_id] || { stat: 'combat_atk', val: 50 };
+    const chipVal = bonus.val;
     await updateDoc(invSnap.docs[0].ref, { quantity: invSnap.docs[0].data().quantity - 1 });
 
-    const updateData = slot === 1
-      ? { chip_slot_1: chip_id, chip_slot_1_val: chipVal, combat_atk: mon.combat_atk + chipVal }
-      : { chip_slot_2: chip_id, chip_slot_2_val: chipVal, combat_def: mon.combat_def + chipVal };
+    const slotKey = slot === 1 ? 'chip_slot_1' : 'chip_slot_2';
+    const slotValKey = slot === 1 ? 'chip_slot_1_val' : 'chip_slot_2_val';
+    const updateData = {
+      [slotKey]: chip_id,
+      [slotValKey]: chipVal,
+      [bonus.stat]: (mon[bonus.stat] || 0) + chipVal,
+    };
     await updateDoc(monRef, updateData);
-    return { message: `已成功鑲嵌在插槽 ${slot}` };
+    return { message: `已成功鑲嵌 ${chip_id} 在插槽 ${slot}，${bonus.stat} +${chipVal}！` };
   },
 
   unequipChip: async (monster_id, slot) => {
@@ -1008,6 +1028,7 @@ export const api = {
     const memberSnap = await getDocs(memberQ);
     if (memberSnap.empty) throw new Error('你沒有加入任何公會！');
     const memberRef = memberSnap.docs[0].ref;
+    const guildId = memberSnap.docs[0].data().guild_id;
 
     const t = makeTransaction();
     const uDoc = await t.get(userRef);
@@ -1015,6 +1036,11 @@ export const api = {
     await t.update(userRef, { gold: uDoc.data().gold - amount });
     const mDoc = await t.get(memberRef);
     await t.update(memberRef, { contribution: (mDoc.data().contribution || 0) + amount });
+
+    // Also update guild total_contribution
+    const guildRef = doc(null, 'guilds', guildId);
+    const gDoc = await t.get(guildRef);
+    await t.update(guildRef, { total_contribution: (gDoc.data().total_contribution || 0) + amount });
 
     return { message: `成功捐獻 ${amount} 金幣！獲得 ${amount} 點公會貢獻。` };
   },
@@ -1026,8 +1052,12 @@ export const api = {
     if (memberSnap.empty) throw new Error('你沒有加入任何公會！');
     const memberRef = memberSnap.docs[0].ref;
 
-    const PRICES = { chip_extractor: 300, breed_catalyst: 150, ultimate_core: 500 };
-    const cost = PRICES[item_id] || 9999;
+    const PRICES = {
+      chip_atk: 200, chip_def: 200, chip_spd: 200, chip_hp: 200,
+      chip_extractor: 300, breed_catalyst: 150, ultimate_core: 500,
+    };
+    const cost = PRICES[item_id];
+    if (cost === undefined) throw new Error('未知商品！');
 
     const t = makeTransaction();
     const mDoc = await t.get(memberRef);
@@ -1037,7 +1067,7 @@ export const api = {
     const invQ = query(collection(null, 'user_inventory'), where('user_id', '==', uid), where('item_id', '==', item_id));
     const invSnap = await getDocs(invQ);
     if (invSnap.empty) {
-      let type = 1;
+      let type = 6; // chips
       if (item_id === 'chip_extractor') type = 4;
       if (item_id === 'breed_catalyst') type = 3;
       if (item_id === 'ultimate_core') type = 5;
@@ -1047,7 +1077,11 @@ export const api = {
       await t.update(invDoc.ref, { quantity: invDoc.data().quantity + 1 });
     }
 
-    return { message: `成功兌換 ${item_id}！消耗 ${cost} 貢獻。` };
+    const ITEM_NAMES = {
+      chip_atk: '攻擊晶片', chip_def: '防禦晶片', chip_spd: '速度晶片', chip_hp: '生命晶片',
+      chip_extractor: '晶片提取器', breed_catalyst: '繁衍催化劑', ultimate_core: '究極進化核心',
+    };
+    return { message: `成功兌換 ${ITEM_NAMES[item_id] || item_id}！消耗 ${cost} 貢獻。` };
   },
 
   // ─── Raid Boss ────────────────────────────────────────────────────────────
@@ -1082,7 +1116,19 @@ export const api = {
       .limit(1)
       .single();
 
-    if (error || !boss || !boss.is_active) throw new Error('世界王已被擊殺，請等待下一輪！');
+    // Auto-spawn a new raid boss if none exists or current is defeated
+    if (error || !boss || !boss.is_active) {
+      const { data: newBoss, error: spawnErr } = await supabase
+        .from('raid_boss')
+        .insert({ name: '啟示錄獸', current_hp: 500000, max_hp: 500000, is_active: true, created_at: new Date().toISOString() })
+        .select()
+        .single();
+      if (spawnErr) throw new Error('世界王重生失敗，請稍後再試！');
+      const newHp = Math.max(0, 500000 - damage);
+      const isActive = newHp > 0;
+      await supabase.from('raid_boss').update({ current_hp: newHp, is_active: isActive }).eq('id', newBoss.id);
+      return { message: `世界王重生！⚡ 造成 ${damage} 點傷害！`, hp: newHp, maxHp: 500000 };
+    }
 
     const newHp = Math.max(0, (boss.current_hp || 0) - damage);
     const isActive = newHp > 0;
@@ -1091,8 +1137,14 @@ export const api = {
     let message = isActive ? '持續激戰中！' : '世界王已被擊退！獲得豐厚獎勵！';
     if (!isActive) {
       await updateDoc(userRef, { gold: (uSnap.data().gold || 0) + 5000 });
+      // Auto-spawn next boss
+      await supabase.from('raid_boss').insert({
+        name: '啟示錄獸', current_hp: 500000, max_hp: 500000,
+        is_active: true, created_at: new Date().toISOString(),
+      });
+      message += ' 新的世界王已出現！';
     }
-    return { message };
+    return { message, hp: newHp, maxHp: boss.max_hp || 500000 };
   },
 
   // ─── Social / Chat ────────────────────────────────────────────────────────
@@ -1182,5 +1234,47 @@ export const api = {
     fetchMessages();
     const timer = setInterval(fetchMessages, 5000);
     return () => { isCancelled = true; clearInterval(timer); };
+  },
+
+  // ─── PVE Mock Matchmaking ─────────────────────────────────────────────────
+
+  matchmakeMock: async (mode, stage) => {
+    const WILD_NAMES = ['病毒蟲', '資料幽靈', '數碼惡魔', '位元狼', '像素龍', '疫苗哨兵', '鐵殼蟲'];
+    const name = WILD_NAMES[Math.floor(Math.random() * WILD_NAMES.length)];
+    const baseAtk = stage * 8 + Math.floor(Math.random() * 10);
+    const baseDef = stage * 6 + Math.floor(Math.random() * 8);
+    const baseHp  = stage * 60 + Math.floor(Math.random() * 30);
+    const baseSpd = stage * 5 + Math.floor(Math.random() * 6);
+    return {
+      monster_id: `wild_${Date.now()}`,
+      name,
+      life_stage: stage,
+      family: Math.floor(Math.random() * 7) + 1,
+      type: Math.floor(Math.random() * 3) + 1,
+      combat_hp: baseHp,
+      combat_atk: baseAtk,
+      combat_def: baseDef,
+      combat_spd: baseSpd,
+      gene_hp: baseHp,
+      gene_atk: baseAtk,
+      gene_def: baseDef,
+      gene_spd: baseSpd,
+      chip_slot_1: null,
+      chip_slot_2: null,
+      battles: 0,
+      wins: 0,
+      is_dead: false,
+    };
+  },
+
+  // ─── User Profile ─────────────────────────────────────────────────────────
+
+  updateNickname: async (newNickname) => {
+    if (!newNickname || newNickname.trim().length === 0) throw new Error('暱稱不能為空！');
+    if (newNickname.trim().length > 16) throw new Error('暱稱最多 16 字！');
+    const uid = await getUserId();
+    const userRef = doc(null, 'users', uid);
+    await updateDoc(userRef, { username: newNickname.trim() });
+    return { message: `暱稱已更新為「${newNickname.trim()}」！` };
   },
 };

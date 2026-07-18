@@ -25,9 +25,13 @@ export default function Dashboard({
   const [showShop, setShowShop] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
   const monster = activeMonster || monsters[0];
-  const isForcedSleep = monster?.sleep_until > Date.now();
+  // Sleep: forced by item (sleep_until > now) OR by night time (22:00-07:00)
+  const now = new Date();
+  const hour = now.getHours();
+  const isNightTime = hour >= 22 || hour < 7;
+  const isForcedSleep = monster?.sleep_until && new Date(monster.sleep_until) > now;
   const [localSleeping, setLocalSleeping] = useState(false);
-  const isSleeping = isForcedSleep || localSleeping;
+  const isSleeping = isForcedSleep || isNightTime || localSleeping;
 
   const handleAction = async (actionFn, ...args) => {
     setLoading(true);

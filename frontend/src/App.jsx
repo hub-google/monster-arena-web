@@ -163,6 +163,10 @@ export default function App() {
     setReceivedChallenge(null);
   };
 
+  const handleNicknameUpdate = (newNickname) => {
+    setUser(prev => prev ? { ...prev, username: newNickname } : prev);
+  };
+
   if (isRecoveringPassword) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900 p-6 font-sans">
@@ -213,8 +217,8 @@ export default function App() {
 
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white p-4">
-      <MobileLayout isConnected={isConnected} page={page} setPage={setPage}>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 p-4">
+      <MobileLayout user={user} page={page} setPage={setPage} onLogout={handleLogout} onNicknameUpdate={handleNicknameUpdate}>
         {page === 'dashboard' && <Dashboard user={user} monsters={monsters} inventory={inventory} refreshData={loadUserData} activeMonster={activeMonster} setActiveMonster={setActiveMonster} setPage={setPage} />}
         {page === 'roster' && <Roster user={user} monsters={monsters} inventory={inventory} friends={friends} refreshData={loadUserData} activeMonster={activeMonster} setActiveMonster={setActiveMonster} setPage={setPage} />}
         {page === 'arena' && <Arena user={user} monsters={monsters} friends={friends} activeMonster={activeMonster} channel={worldChannel} activePlayers={activePlayers} receivedChallenge={receivedChallenge} setReceivedChallenge={setReceivedChallenge} battleState={battleState} setBattleState={setBattleState} refreshData={loadUserData} setPage={setPage} />}
@@ -222,11 +226,6 @@ export default function App() {
         {page === 'social' && <Social user={user} activePlayers={activePlayers} monsters={monsters} refreshData={loadUserData} setPage={setPage} />}
         {page === 'pokedex' && <Pokedex setPage={setPage} />}
       </MobileLayout>
-      <div className="mt-4 flex gap-4 text-xs">
-        <button onClick={loadUserData} className="text-slate-400 hover:text-white transition">🔄 重新整理</button>
-        <span className="text-slate-600">|</span>
-        <button onClick={handleLogout} className="text-rose-500 hover:text-rose-400 transition">🚪 安全登出 ({user.username})</button>
-      </div>
     </div>
   );
 }
