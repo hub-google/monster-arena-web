@@ -103,12 +103,12 @@ export default function Dashboard({
   };
 
   let displayName = monster.name;
-  if (monster.custom_name) {
-    displayName = monster.custom_name;
-  } else if (monster.life_stage >= 3) {
-    const spriteKey = `${monster.family || 1}_${monster.life_stage}_${monster.type || 0}`;
-    if (MONSTER_SPRITES[spriteKey]) {
-      displayName = MONSTER_SPRITES[spriteKey].name;
+  if (!displayName || displayName === '數位蛋') {
+    if (monster.life_stage >= 3) {
+      const spriteKey = `${monster.family || 1}_${monster.life_stage}_${monster.type || 0}`;
+      if (MONSTER_SPRITES[spriteKey]) {
+        displayName = MONSTER_SPRITES[spriteKey].name;
+      }
     }
   }
 
@@ -210,11 +210,9 @@ export default function Dashboard({
               ✏️
             </button>
           </div>
-          {monster.custom_name && (
-            <div className="text-xs text-slate-500">
-              種族：{speciesName}
-            </div>
-          )}
+          <div className="text-xs text-slate-500">
+            種族：{speciesName}
+          </div>
         </div>
         
         <div className="flex gap-2 text-xs font-medium text-slate-300 z-10 mb-6 bg-slate-800 px-3 py-1 rounded-full border border-slate-600">

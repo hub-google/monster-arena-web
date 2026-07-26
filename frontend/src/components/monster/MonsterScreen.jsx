@@ -22,7 +22,7 @@ const MonsterScreen = ({ monster, onExtractChip, onDispatch }) => {
         <div className="flex justify-between items-start mb-2">
           <div>
             <h3 className="text-xl text-[#00ffcc] font-bold font-mono tracking-widest text-shadow-neon">
-              {monster.custom_name || monster.name || 'UNKNOWN'}
+              {monster.name || 'UNKNOWN'}
             </h3>
             <p className="text-[#00ffcc]/80 text-xs font-mono mt-1">ID: {monster.monster_id?.substring(0, 8)} | GEN: {monster.generation || 1}</p>
           </div>

@@ -56,7 +56,7 @@ export default function Social({ user, activePlayers, refreshData, setPage }) {
         })));
       });
       return () => unsubscribe();
-    } else if (subTab === 'friends') {
+    } else if (subTab === 'friends' || subTab === 'plaza') {
       loadFriends();
     }
   }, [subTab, privateChatTarget]);
@@ -128,8 +128,34 @@ export default function Social({ user, activePlayers, refreshData, setPage }) {
     }
   };
 
+  const handleAddFriendAction = async (targetUserId) => {
+    setLoading(true);
+    try {
+      const res = await api.addFriend(targetUserId);
+      setMessage(res.message);
+      await loadFriends();
+    } catch (err) {
+      setMessage(`❌ ${err.message}`);
+    }
+    setLoading(false);
+  };
+
+  const loadUserProfile = async (userId) => {
+    try {
+      const p = activePlayers?.find(x => x.user_id === userId);
+      if (p) {
+        setSelectedProfile(p);
+        setShowProfileModal(true);
+      } else {
+        setMessage('無法載入玩家資料');
+      }
+    } catch (err) {
+      setMessage(`❌ ${err.message}`);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full animate-fade-in relative gap-4">
+    <div className="flex flex-col animate-fade-in relative gap-4 pb-10">
       <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm">
         <button 
           onClick={() => { setSubTab('plaza'); setMessage(''); }} 
@@ -162,11 +188,15 @@ export default function Social({ user, activePlayers, refreshData, setPage }) {
           <div className="glass-card p-4 flex justify-between items-center text-sm font-bold">
             <span className="text-cyan-400">大廳在線玩家: {(activePlayers?.length || 0) + (activePlayers?.find(p => p.user_id === user.user_id) ? 0 : 1)}人</span>
           </div>
-          <div className="flex-1 overflow-y-auto pb-10 space-y-3">
+          <div className="flex-1 pb-10 space-y-3">
             {[
               ...(activePlayers?.find(p => p.user_id === user.user_id) ? [] : [{...user, username: `${user.username} (你)`}]),
               ...(activePlayers || [])
-            ].map(p => (
+            ].map(p => {
+              const friendData = friendsList.find(f => f.friend_id === p.user_id);
+              const isFriend = friendData && friendData.status === 1;
+              const isPending = friendData && friendData.status === 0;
+              return (
               <div key={p.user_id} className="glass-card p-4 border-rose-500/30 flex justify-between items-center hover:border-rose-500/60 transition-colors">
                 <div 
                   className="flex items-center gap-3 cursor-pointer"
@@ -179,15 +209,22 @@ export default function Social({ user, activePlayers, refreshData, setPage }) {
                   </div>
                 </div>
                 {p.user_id !== user.user_id && (
-                  <button 
-                    onClick={() => handleAddFriendAction(p.user_id)}
-                    className="text-xs bg-emerald-900/50 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 px-3 py-1.5 rounded transition-all"
-                  >
-                    ➕ 加好友
-                  </button>
+                  isFriend ? (
+                    <span className="text-xs text-slate-400 px-3 py-1.5 border border-slate-700 rounded bg-slate-800">已為好友</span>
+                  ) : isPending ? (
+                    <span className="text-xs text-amber-400 px-3 py-1.5 border border-amber-500/30 rounded bg-amber-900/20">申請中</span>
+                  ) : (
+                    <button 
+                      onClick={() => handleAddFriendAction(p.user_id)}
+                      disabled={loading}
+                      className="text-xs bg-emerald-900/50 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 px-3 py-1.5 rounded transition-all disabled:opacity-50"
+                    >
+                      ➕ 加好友
+                    </button>
+                  )
                 )}
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}
@@ -225,7 +262,7 @@ export default function Social({ user, activePlayers, refreshData, setPage }) {
             </div>
           </div>
           
-          <div className="flex-1 flex flex-col gap-4 overflow-y-auto">
+          <div className="flex-1 flex flex-col gap-4">
             {/* 1. 好友申請 (Incoming Requests) */}
             <div className="glass-card p-4 flex flex-col gap-2">
               <h3 className="text-amber-400 font-bold text-sm mb-2 border-b border-slate-700 pb-2">
@@ -265,7 +302,7 @@ export default function Social({ user, activePlayers, refreshData, setPage }) {
               <h3 className="text-emerald-400 font-bold text-sm mb-2 border-b border-slate-700 pb-2">
                 🤝 好友名單 ({friendsList.filter(f => f.status === 1).length})
               </h3>
-              <div className="flex-1 overflow-y-auto space-y-3 pb-4">
+              <div className="flex-1 space-y-3 pb-4">
                 {loading ? (
                   <p className="text-center text-slate-400 py-10">載入中...</p>
                 ) : friendsList.filter(f => f.status === 1).length === 0 ? (
@@ -330,8 +367,8 @@ export default function Social({ user, activePlayers, refreshData, setPage }) {
       )}
 
       {subTab === 'chat' && (
-        <div className="flex flex-col h-full gap-4">
-          <div className="flex-1 glass-card p-4 overflow-y-auto text-sm select-text flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
+          <div className="flex-1 glass-card p-4 text-sm select-text flex flex-col gap-3">
             <div className={`bg-slate-800/80 p-2 rounded mb-2 text-center border text-[10px] ${privateChatTarget ? 'text-indigo-400 border-indigo-500/50' : 'text-slate-400 border-slate-700/50'}`}>
               {privateChatTarget ? `與 ${privateChatTarget.friend_username} 的私人對話` : '全伺服器公共頻道'}
             </div>

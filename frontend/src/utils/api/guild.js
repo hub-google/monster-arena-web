@@ -155,12 +155,13 @@ export const guildApi = {
     const members = [];
     for (let d of snap.docs) {
       const data = d.data();
+      if (data.role === 0) continue;
       const uSnap = await getDocs(query(collection(null, 'users'), where('user_id', '==', data.user_id)));
       let username = '未知玩家';
       if (!uSnap.empty) username = uSnap.docs[0].data().username || '未知玩家';
       members.push({ id: data.user_id, username, role: data.role, contribution: data.contribution });
     }
-    return members.sort((a, b) => (b.role - a.role) || (b.contribution - a.contribution));
+    return members.sort((a, b) => (a.role - b.role) || (b.contribution - a.contribution));
   },
 
   getGuildApplications: async (guild_id) => {

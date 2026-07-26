@@ -239,7 +239,12 @@ export default function Guild({
                     <div className="flex items-center gap-3">
                       <span className="text-lg">{m.role === 1 ? '👑' : m.role === 2 ? '🛡️' : '👤'}</span>
                       <div className="flex flex-col">
-                        <span className="font-bold text-white text-sm">{m.username}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">{m.username}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${m.role === 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : m.role === 2 ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-slate-700 text-slate-300'}`}>
+                            {m.role === 1 ? '會長' : m.role === 2 ? '副會長' : '一般會員'}
+                          </span>
+                        </div>
                         <span className="text-xs text-slate-400">貢獻: {m.contribution}</span>
                       </div>
                     </div>

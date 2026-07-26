@@ -53,28 +53,40 @@ export default function Arena({
 
   useEffect(() => {
     if (battleState && battleState.isOver && !battleState.resolved) {
-      const isWin = battleState.winner === 'A';
-      api.resolveBattle(battleState.mA.monster_id, isWin)
-        .then(res => {
-          setMessage(res.message);
-          setBattleState(prev => ({ ...prev, resolved: true }));
-          refreshData();
-        })
-        .catch(err => setMessage(`❌ ${err.message}`));
+      // Mark resolved immediately to prevent double-trigger
+      setBattleState(prev => prev ? { ...prev, resolved: true } : prev);
+      
+      const monsterId = battleState.mA?.monster_id;
+      // Only call resolveBattle for real player monsters (not wild/mock enemies)
+      if (monsterId && !String(monsterId).startsWith('wild_') && !String(monsterId).startsWith('mock_')) {
+        const isWin = battleState.winner === 'A';
+        api.resolveBattle(monsterId, isWin)
+          .then(res => {
+            setMessage(res.message);
+            refreshData();
+          })
+          .catch(err => setMessage(`❌ ${err.message}`));
+      } else {
+        // PVE battle - just show result without DB call
+        setMessage(battleState.winner === 'A' ? '🏆 戰鬥勝利！' : '💀 戰鬥落敗。');
+        refreshData();
+      }
     }
-  }, [battleState, refreshData]);
+  }, [battleState?.isOver, battleState?.resolved]);
 
   const fastForwardBattle = () => {
     setBattleState(prev => {
       if (!prev || prev.isOver) return prev;
       let next = prev;
       let safetyCounter = 0;
-      while (!next.isOver && safetyCounter < 1000) {
+      while (!next.isOver && safetyCounter < 1500) {
         safetyCounter++;
         next = tickBattle(next);
       }
       if (next.isOver) {
-        next = { ...next, logs: [...next.logs, `⏭️ 已跳過動畫，瞬間結算完成！`] };
+        next = { ...next, logs: [...next.logs, `⏭️ 已跳過動畫，瞬間結算完成！ (歷經 ${safetyCounter} 回合)`] };
+      } else {
+        next = { ...next, isOver: true, winner: next.mA_HP > next.mB_HP ? 'A' : 'B', logs: [...next.logs, `⚠️ 戰鬥過長強制終止！瞬間結算完成！`] };
       }
       return next;
     });
@@ -374,7 +386,7 @@ export default function Arena({
   }
 
   return (
-    <div className="h-full flex flex-col gap-4 animate-fade-in relative overflow-y-auto pb-4">
+    <div className="flex flex-col gap-4 animate-fade-in relative pb-10">
       {receivedChallenge && !battleState && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 rounded-3xl">
            <div className="glass-card p-6 flex flex-col gap-4 w-full max-w-sm text-center animate-bounce-slight border-rose-500 shadow-[0_0_30px_rgba(244,63,94,0.3)]">

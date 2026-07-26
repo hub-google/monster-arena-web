@@ -355,7 +355,7 @@ export default function Roster({
                 <select value={parent1} onChange={(e) => setParent1(e.target.value)} className="w-full bg-slate-950 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-fuchsia-500">
                   <option value="">--請選擇怪獸--</option>
                   {(parent1Source === 'mine' ? monsters.filter(m => m.life_stage >= 3 && !m.is_dead) : parent1FriendMonsters).filter(m => m.monster_id !== parent2).map(m => (
-                    <option key={m.monster_id} value={m.monster_id}>{m.name || m.custom_name} (G{m.generation})</option>
+                    <option key={m.monster_id} value={m.monster_id}>{m.name} (G{m.generation})</option>
                   ))}
                 </select>
               </div>
@@ -375,7 +375,7 @@ export default function Roster({
                 <select value={parent2} onChange={(e) => setParent2(e.target.value)} className="w-full bg-slate-950 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-fuchsia-500">
                   <option value="">--請選擇怪獸--</option>
                   {(parent2Source === 'mine' ? monsters.filter(m => m.life_stage >= 3 && !m.is_dead) : parent2FriendMonsters).filter(m => m.monster_id !== parent1).map(m => (
-                    <option key={m.monster_id} value={m.monster_id}>{m.name || m.custom_name} (G{m.generation})</option>
+                    <option key={m.monster_id} value={m.monster_id}>{m.name} (G{m.generation})</option>
                   ))}
                 </select>
               </div>

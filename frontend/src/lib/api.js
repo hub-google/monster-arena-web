@@ -486,7 +486,7 @@ export const api = {
   rename: async (monster_id, new_name) => {
     if (!new_name || new_name.trim().length === 0) throw new Error('名字不能為空！');
     if (new_name.length > 20) throw new Error('名字太長了！');
-    await updateDoc(doc(null, 'monsters', monster_id), { custom_name: new_name.trim() });
+    await updateDoc(doc(null, 'monsters', monster_id), { name: new_name.trim() });
     return { message: `怪獸已改名為 ${new_name.trim()}！` };
   },
 
@@ -497,33 +497,21 @@ export const api = {
 
     const t = makeTransaction();
     const userDoc = await t.get(userRef);
-    if (userDoc.data().stamina < 10) throw new Error('體力不足！訓練需要 10 點體力。');
+    if (userDoc.data().stamina < 5) throw new Error('體力不足！訓練需要 5 點體力。');
 
     const monDoc = await t.get(monRef);
     const mon = monDoc.data();
     if (!mon || mon.is_dead || mon.is_sick || mon.fullness < 20) throw new Error('怪獸生病或太餓無法訓練！');
 
-    await t.update(userRef, { stamina: userDoc.data().stamina - 10 });
-
-    const stats = ['combat_hp', 'combat_atk', 'combat_def', 'combat_spd'];
-    const boostStat = stats[Math.floor(Math.random() * stats.length)];
-    const boostVal = boostStat === 'combat_hp' ? 10 : 2;
+    await t.update(userRef, { stamina: userDoc.data().stamina - 5 });
 
     await t.update(monRef, {
-      [boostStat]: mon[boostStat] + boostVal,
       fullness: mon.fullness - 10,
       train_count: (mon.train_count || 0) + 1,
     });
 
     api.trackQuestProgress('train', 1).catch(e => console.warn(e));
-    const statNames = {
-      combat_hp: '生命值',
-      combat_atk: '攻擊力',
-      combat_def: '防禦力',
-      combat_spd: '速度'
-    };
-    const chineseStat = statNames[boostStat] || boostStat;
-    return { message: `訓練成功！消耗 10 體力，${chineseStat} 提升了！` };
+    return { message: `訓練成功！消耗 5 體力，訓練次數 +1！` };
   },
 
   evolve: async (monster_id) => {

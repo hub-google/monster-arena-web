@@ -108,14 +108,26 @@ export default function Dashboard({
   };
 
   let displayName = monster.name;
-  if (monster.custom_name) {
-    displayName = monster.custom_name;
-  } else if (monster.life_stage >= 3) {
-    const spriteKey = `${monster.family || 1}_${monster.life_stage}_${monster.type || 0}`;
-    if (MONSTER_SPRITES[spriteKey]) {
-      displayName = MONSTER_SPRITES[spriteKey].name;
+  if (!displayName || displayName === '數位蛋') {
+    if (monster.life_stage >= 3) {
+      const spriteKey = `${monster.family || 1}_${monster.life_stage}_${monster.type || 0}`;
+      if (MONSTER_SPRITES[spriteKey]) {
+        displayName = MONSTER_SPRITES[spriteKey].name;
+      }
     }
   }
+
+  const formatSurvivalTime = (m) => {
+    if (!m) return '0D0H';
+    let totalDays = m.age_days || 0;
+    if (!totalDays && m.created_at) {
+      const diffMs = new Date() - new Date(m.created_at);
+      totalDays = diffMs / (1000 * 60 * 60 * 24);
+    }
+    const d = Math.floor(totalDays);
+    const h = Math.floor((totalDays - d) * 24);
+    return `${d}D${h}H`;
+  };
 
   let speciesName = '數位蛋';
   if (monster.life_stage >= 3) {
@@ -130,6 +142,7 @@ export default function Dashboard({
     const fName = FAMILY_NAMES[monster.family || 1] || '未知族';
     speciesName = `${fName}幼年期`;
   }
+
 
   const handleRename = async () => {
     const newName = prompt('請輸入新的怪獸名稱（最多20字）：', displayName);
@@ -308,7 +321,7 @@ export default function Dashboard({
       </div>
       
       {/* Evolution Parameters summary */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         <div className="glass-card py-2 flex flex-col items-center">
           <span className="text-[10px] text-slate-400">培育失誤</span>
           <span className="font-bold text-amber-500">{monster.neglect_count || 0}</span>
@@ -322,6 +335,12 @@ export default function Dashboard({
           <span className="font-bold text-purple-400">
             {monster.battles > 0 ? Math.round((monster.wins || 0) / monster.battles * 100) : 0}%
             <span className="text-[9px] text-slate-500 ml-1">({monster.battles}戰)</span>
+          </span>
+        </div>
+        <div className="glass-card py-2 flex flex-col items-center">
+          <span className="text-[10px] text-slate-400">存活天數</span>
+          <span className="font-bold text-cyan-400">
+            {formatSurvivalTime(monster)}
           </span>
         </div>
       </div>
@@ -465,14 +484,23 @@ export default function Dashboard({
 
         {/* Evolve action if Perfect and ready */}
         {monster.life_stage === 5 && (
-          <div className="mt-4">
+          <div className="mt-4 flex flex-col gap-1.5">
             <button
               onClick={() => handleAction(api.evolve, monster.monster_id)}
-              disabled={loading || getItemQty('ultimate_core') === 0 || monster.battles < 50}
-              className="neon-button bg-gradient-to-r from-yellow-500 to-amber-600 text-white shadow-[0_0_20px_rgba(245,158,11,0.5)] w-full py-4 text-sm pulse-glow"
+              disabled={loading || getItemQty('ultimate_core') === 0 || monster.battles < 50 || (monster.battles > 0 ? monster.wins / monster.battles : 0) < 0.7 || (monster.age_days || 0) < 7}
+              className="neon-button bg-gradient-to-r from-yellow-500 to-amber-600 text-white shadow-[0_0_20px_rgba(245,158,11,0.5)] w-full py-4 text-sm pulse-glow disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              🧬 究極進化 (需核心+50戰+70%勝率)
+              🧬 究極進化 (需核心+50戰+70%勝率+存活7天)
             </button>
+            {((getItemQty('ultimate_core') === 0) || monster.battles < 50 || (monster.battles > 0 ? monster.wins / monster.battles : 0) < 0.7 || (monster.age_days || 0) < 7) && (
+              <div className="text-[11px] text-amber-400 text-center font-medium bg-amber-950/40 p-2 rounded-lg border border-amber-500/30">
+                ⚠️ 未達進化條件：
+                {getItemQty('ultimate_core') === 0 && <span className="block text-rose-400">• 缺少【究極進化核心】道具</span>}
+                {monster.battles < 50 && <span className="block text-rose-400">• 戰鬥未滿 50 場 (目前: {monster.battles} 場)</span>}
+                {(monster.battles > 0 ? monster.wins / monster.battles : 0) < 0.7 && <span className="block text-rose-400">• 勝率未達 70% (目前: {Math.round((monster.wins || 0) / (monster.battles || 1) * 100)}%)</span>}
+                {(monster.age_days || 0) < 7 && <span className="block text-rose-400">• 未存活滿 7 天 (目前: {Math.floor((monster.age_days || 0) * 10) / 10} 天)</span>}
+              </div>
+            )}
           </div>
         )}
       </div>

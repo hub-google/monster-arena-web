@@ -204,12 +204,9 @@ export const monstersApi = {
         const uSnap = await getDoc(userRef);
         if (!uSnap.exists() || uSnap.data().gold < price) throw new Error(`金幣不足！需要 ${price}G`);
         await updateDoc(userRef, { gold: uSnap.data().gold - price });
-        // Insert inventory
-        await insertAndGetId('user_inventory', { user_id: uid, item_id, item_type: 1, quantity: 0 });
-        // Re-query
-        const newInvSnap = await getDocs(invQ);
-        if (!newInvSnap.empty) {
-          await updateDoc(newInvSnap.docs[0].ref, { quantity: newInvSnap.docs[0].data().quantity }); // keep at 0, will not consume
+        // Handle inventory
+        if (invSnap.empty) {
+          await insertAndGetId('user_inventory', { user_id: uid, item_id, item_type: 1, quantity: 0 });
         }
       } else {
         await updateDoc(invSnap.docs[0].ref, { quantity: invSnap.docs[0].data().quantity - 1 });
@@ -284,7 +281,7 @@ export const monstersApi = {
   rename: async (monster_id, new_name) => {
     if (!new_name || new_name.trim().length === 0) throw new Error('名字不能為空！');
     if (new_name.length > 20) throw new Error('名字太長了！');
-    await updateDoc(doc(null, 'monsters', monster_id), { custom_name: new_name.trim() });
+    await updateDoc(doc(null, 'monsters', monster_id), { name: new_name.trim() });
     return { message: `怪獸已改名為 ${new_name.trim()}！` };
   },
 
@@ -297,38 +294,26 @@ export const monstersApi = {
     const userDoc = await t.get(userRef);
     const currentStamina = userDoc.data().stamina || 0;
     const maxStamina = userDoc.data().max_stamina || 500;
-    if (currentStamina < 10) throw new Error('體力不足！訓練需要 10 點體力。');
+    if (currentStamina < 5) throw new Error('體力不足！訓練需要 5 點體力。');
 
     const monDoc = await t.get(monRef);
     const mon = monDoc.data();
     if (!mon || mon.is_dead || mon.is_sick || mon.fullness < 20) throw new Error('怪獸生病或太餓無法訓練！');
 
-    const updateData = { stamina: currentStamina - 10 };
+    const updateData = { stamina: currentStamina - 5 };
     if (currentStamina >= maxStamina) {
       updateData.stamina_updated_at = new Date().toISOString();
     }
     await t.update(userRef, updateData);
 
-    const stats = ['combat_hp', 'combat_atk', 'combat_def', 'combat_spd'];
-    const boostStat = stats[Math.floor(Math.random() * stats.length)];
-    const boostVal = boostStat === 'combat_hp' ? 10 : 2;
-
     await t.update(monRef, {
-      [boostStat]: mon[boostStat] + boostVal,
       fullness: mon.fullness - 10,
       train_count: (mon.train_count || 0) + 1,
     });
 
     questsApi.trackQuestProgress('train', 1).catch(e => console.warn(e));
-    
-    const statNames = {
-      combat_hp: '生命值',
-      combat_atk: '攻擊力',
-      combat_def: '防禦力',
-      combat_spd: '速度'
-    };
-    const chineseStat = statNames[boostStat] || boostStat;
-    return { message: `訓練成功！消耗 10 體力，${chineseStat} 提升了！` };
+
+    return { message: `訓練成功！消耗 5 體力，訓練次數 +1！` };
   },
 
   evolve: async (monster_id) => {
@@ -494,7 +479,10 @@ export const monstersApi = {
       [bonus.stat]: (mon[bonus.stat] || 0) + chipVal,
     };
     await updateDoc(monRef, updateData);
-    return { message: `已成功鑲嵌 ${chip_id} 在插槽 ${slot}，${bonus.stat} +${chipVal}！` };
+    
+    const ITEM_NAMES = { chip_atk: '攻擊晶片', chip_def: '防禦晶片', chip_spd: '速度晶片', chip_hp: '生命晶片' };
+    const STAT_NAMES = { combat_atk: '攻擊力', combat_def: '防禦力', combat_spd: '速度', combat_hp: '生命值' };
+    return { message: `已成功鑲嵌 ${ITEM_NAMES[chip_id] || chip_id} 在插槽 ${slot}，${STAT_NAMES[bonus.stat] || bonus.stat} +${chipVal}！` };
   },
 
   unequipChip: async (monster_id, slot) => {

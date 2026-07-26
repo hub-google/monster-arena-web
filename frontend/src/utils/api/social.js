@@ -45,7 +45,7 @@ export const socialApi = {
   getUserProfile: async (userId) => {
     const { data: uData, error } = await supabase.from('users').select('*').eq('user_id', userId).single();
     if (error) return null;
-    const { data: mData } = await supabase.from('monsters').select('*').eq('user_id', userId).eq('is_active', true);
+    const { data: mData } = await supabase.from('monsters').select('*').eq('user_id', userId).eq('is_dead', false);
     return {
        ...uData,
        monsters: mData || []

@@ -36,8 +36,19 @@ export default function App() {
   const isConnected = true;
   const worldChannel = null;
 
-  // Initial load
+  // Initial load & Version check
   useEffect(() => {
+    // Check for updates to bypass CDN cache
+    fetch('/monster-arena-web/version.json?t=' + Date.now())
+      .then(res => res.json())
+      .then(data => {
+        if (data.version && data.version !== __APP_VERSION__) {
+          console.log('New version detected, forcing reload...');
+          window.location.reload(true);
+        }
+      })
+      .catch(e => console.error('Version check failed', e));
+
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecoveringPassword(true);
