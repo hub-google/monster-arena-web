@@ -803,40 +803,32 @@ export const api = {
   },
 
   sendMessage: async (channel, text) => {
-    if (!text || text.trim().length === 0) return;
-    if (text.trim().length > 100) throw new Error('訊息最多 100 字！');
     const uid = getUserId();
-
-    // Spam check
-    const nowStr = new Date().toISOString();
-    const q = query(collection(db, 'messages'), where('user_id', '==', uid), orderBy('timestamp', 'desc'), limit(1));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      const lastMsg = snap.docs[0].data();
-      const diff = new Date() - new Date(lastMsg.timestamp);
-      if (diff < 3000) {
-        throw new Error('發言過於頻繁，請等待3秒！');
-      }
-    }
-
-    const uSnap = await getDoc(doc(db, 'users', uid));
-    const username = uSnap.exists() ? uSnap.data().username : 'Unknown';
-
+    const message = text?.trim();
+    if (!message) return;
+    if (channel !== 'world') throw new Error('不支援的聊天頻道！');
+    if (message.length > 100) throw new Error('訊息最多 100 字！');
+    const userRef = doc(db, 'users', uid);
     const msgRef = doc(collection(db, 'messages'));
-    await setDoc(msgRef, {
-      channel,
-      user_id: uid,
-      username,
-      text: text.trim(),
-      timestamp: nowStr
+    const now = Date.now();
+    await runTransaction(db, async t => {
+      const u = await t.get(userRef);
+      if (!u.exists()) throw new Error('使用者不存在！');
+      if (now - new Date(u.data().last_message_at || 0).getTime() < 3000) {
+        throw new Error('發言過於頻繁，請等待 3 秒！');
+      }
+      const stamp = new Date(now).toISOString();
+      t.update(userRef, { last_message_at: stamp });
+      t.set(msgRef, { channel, user_id: uid, username: u.data().username,
+        text: message, timestamp: stamp });
     });
   },
 
   subscribeMessages: (channel, callback) => {
-    const q = query(collection(db, 'messages'), where('channel', '==', channel), orderBy('timestamp', 'desc'), limit(50));
+    const q = query(collection(db, 'messages'), orderBy('timestamp', 'desc'), limit(100));
     const unsubscribe = onSnapshot(q, (snap) => {
       const msgs = [];
-      snap.forEach(d => msgs.push({ id: d.id, ...d.data() }));
+      snap.forEach(d => { if (d.data().channel === channel && msgs.length < 50) msgs.push({ id: d.id, ...d.data() }); });
       callback(msgs.reverse());
     });
     return unsubscribe;
@@ -876,14 +868,15 @@ export const api = {
 
   getFriends: async () => {
     const uid = getUserId();
-    const q1 = query(collection(db, 'friends'), where('user_id_1', '==', uid), where('status', '==', 1));
-    const q2 = query(collection(db, 'friends'), where('user_id_2', '==', uid), where('status', '==', 1));
+    const q1 = query(collection(db, 'friends'), where('user_id_1', '==', uid));
+    const q2 = query(collection(db, 'friends'), where('user_id_2', '==', uid));
 
     const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
     const friends = [];
 
     for (const d of [...snap1.docs, ...snap2.docs]) {
       const data = d.data();
+      if (data.status !== 1) continue;
       const friendId = data.user_id_1 === uid ? data.user_id_2 : data.user_id_1;
       const uSnap = await getDoc(doc(db, 'public_profiles', friendId));
       if (uSnap.exists()) {
