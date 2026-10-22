@@ -26,6 +26,21 @@ export default function Arena({
   const [loading, setLoading] = useState(false);
 
   const logsEndRef = useRef(null);
+  const recordedBattles = useRef(new Set());
+  const battleRunning = Boolean(battleState && !battleState.isOver);
+
+  useEffect(() => {
+    if (!battleState?.isOver || !battleState.battleId || recordedBattles.current.has(battleState.battleId)) return;
+    const { battleId, mA, winner } = battleState;
+    recordedBattles.current.add(battleId);
+    api.recordBattleResult(mA.monster_id, battleId, winner === 'A')
+      .then(refreshData)
+      .catch(err => {
+        recordedBattles.current.delete(battleId);
+        setMessage(`戰鬥紀錄儲存失敗：${err.message}`);
+      });
+  }, [battleState?.isOver, battleState?.battleId, battleState?.winner, refreshData]);
+
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -44,12 +59,12 @@ export default function Arena({
 
   // Battle ATB Engine
   useEffect(() => {
-    if (!battleState || battleState.isOver) return;
+    if (!battleRunning) return;
     
     const interval = setInterval(() => {
       setBattleState(prev => {
         if (!prev || prev.isOver) return prev;
-        let next = { ...prev };
+        let next = { ...prev, logs: [...prev.logs] };
         
         // RNG & Base Speed Multiplier
         const speedMultiplier = 0.5;
@@ -112,7 +127,7 @@ export default function Arena({
     }, 200);
 
     return () => clearInterval(interval);
-  }, [battleState, setBattleState]);
+  }, [battleRunning, setBattleState]);
 
   const sendWorldChat = () => {
     if (!chatMessage.trim() || loading) return;
@@ -134,8 +149,8 @@ export default function Arena({
 
   const handleAcceptChallenge = (mA, mB) => {
     setReceivedChallenge(null);
-    api.trackQuestProgress('battle', 1).catch(e => console.warn(e));
     setBattleState({
+      battleId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random(),
       mA, mB,
       mA_HP: mA.combat_hp, mB_HP: mB.combat_hp,
       mA_MaxHP: mA.combat_hp, mB_MaxHP: mB.combat_hp,
