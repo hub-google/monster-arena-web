@@ -15,6 +15,8 @@ concurrency:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    env:
+      VITE_PREVIEW: ${{ github.ref_name != 'master' && 'true' || 'false' }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -35,11 +37,11 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run browser smoke test against build
         env:
-          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173/monster-arena-web/
+          PLAYWRIGHT_BASE_URL: ${{ github.ref_name == 'master' && 'http://127.0.0.1:4173/monster-arena-web/' || 'http://127.0.0.1:4173/monster-arena-web/preview/' }}
         run: |
           npm run preview -- --host 127.0.0.1 > /tmp/monster-arena-vite.log 2>&1 &
           for i in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:4173/monster-arena-web/ >/dev/null; then break; fi
+            if curl -fsS "$PLAYWRIGHT_BASE_URL" >/dev/null; then break; fi
             sleep 1
           done
           npx playwright test tests/smoke.spec.js --project=chromium
@@ -48,5 +50,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
-          publish_branch: ${{ github.ref_name == 'master' && 'gh-pages' || 'gh-pages-preview' }}
-          force_orphan: true
+          publish_branch: gh-pages
+          destination_dir: ${{ github.ref_name == 'master' && '.' || 'preview' }}
+          keep_files: ${{ github.ref_name != 'master' }}
+          force_orphan: ${{ github.ref_name == 'master' }}
