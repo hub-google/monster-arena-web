@@ -83,7 +83,7 @@ export default function Login({ onLoginSuccess }) {
           
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-cyan-500 mb-2 pl-1">
-              {isRegister ? '使用者名稱 (Username)' : '註冊時使用的電子信箱 (Email)'}
+              {isRegister ? '使用者名稱 (Username)' : '帳號或註冊信箱'}
             </label>
             <input
               type="text"
@@ -91,7 +91,7 @@ export default function Login({ onLoginSuccess }) {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder={isRegister ? "輸入帳號..." : "輸入註冊電子信箱..."}
+              placeholder={isRegister ? "輸入帳號..." : "輸入帳號或 Email..."}
               className="w-full bg-slate-900/80 border border-slate-700 focus:border-cyan-500 focus:shadow-[0_0_10px_rgba(8,145,178,0.2)] rounded-xl px-4 py-3 text-white placeholder-slate-600 outline-none transition-all"
             />
           </div>
