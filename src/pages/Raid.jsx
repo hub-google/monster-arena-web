@@ -45,18 +45,8 @@ export default function Raid({
     setLoading(true);
     setMessage('');
     try {
-      // Calculate client-side attack damage based on combat stats & attribute countering
-      // World boss is Vaccine (1). Attacker Virus (3) -> +30% damage. Attacker Data (2) -> -30% damage.
-      let typeMultiplier = 1.0;
-      if (selectedMonster.type === 3) typeMultiplier = 1.30;
-      else if (selectedMonster.type === 2) typeMultiplier = 0.70;
-
-      const baseDmg = selectedMonster.combat_atk * 20;
-      const rng = (Math.random() * 0.20) + 0.90; // 0.9 to 1.1 RNG
-      const finalDmg = Math.round(baseDmg * typeMultiplier * rng);
-
-      const data = await api.attackRaidBoss(selectedMonster.monster_id, finalDmg);
-      setMessage(`💥 造成 ${finalDmg.toLocaleString()} 點傷害！\n${data.message}`);
+      const data = await api.attackRaidBoss(selectedMonster.monster_id);
+      setMessage(`💥 造成 ${data.damage.toLocaleString()} 點傷害！\n${data.message}`);
       await refreshData();
       await fetchBossStatus();
     } catch (err) {
