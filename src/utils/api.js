@@ -417,105 +417,94 @@ export const api = {
 
   equipChip: async (monster_id, chip_id, slot) => {
     const uid = getUserId();
-    const monRef = doc(db, 'monsters', monster_id);
-    const monSnap = await getDoc(monRef);
-    const mon = monSnap.data();
-    if (slot === 1 && mon.life_stage < 3) throw new Error('第一插槽需成熟期才解鎖');
-    if (slot === 2 && mon.life_stage < 4) throw new Error('第二插槽需完全體才解鎖');
-
-    const invQ = query(collection(db, 'user_inventory'), where('user_id', '==', uid), where('item_id', '==', chip_id));
-    const invSnap = await getDocs(invQ);
-    if (invSnap.empty || invSnap.docs[0].data().quantity <= 0) throw new Error('沒有此晶片！');
-
-    const chipVal = 5; // simplified
-    await updateDoc(invSnap.docs[0].ref, { quantity: invSnap.docs[0].data().quantity - 1 });
-
-    const updateData = slot === 1 ? { chip_slot_1: chip_id, chip_slot_1_val: chipVal, combat_atk: mon.combat_atk + chipVal }
-      : { chip_slot_2: chip_id, chip_slot_2_val: chipVal, combat_def: mon.combat_def + chipVal };
-    await updateDoc(monRef, updateData);
+    if (![1, 2].includes(slot)) throw new Error('無效的晶片插槽！');
+    const { ref: monRef } = await ownMonster(monster_id);
+    const invRef = await ownedInventoryItem(uid, chip_id);
+    await runTransaction(db, async t => {
+      const monSnap = await t.get(monRef);
+      const invSnap = await t.get(invRef);
+      if (!monSnap.exists() || monSnap.data().user_id !== uid || monSnap.data().is_dead) throw new Error('怪獸狀態異常！');
+      const mon = monSnap.data();
+      if (mon.life_stage < (slot === 1 ? 4 : 5)) throw new Error('尚未解鎖此晶片插槽！');
+      if (!invSnap.exists() || invSnap.data().user_id !== uid || invSnap.data().item_id !== chip_id ||
+          invSnap.data().item_type !== 4 || invSnap.data().quantity < 1 || chip_id === 'chip_extractor') {
+        throw new Error('沒有可裝備的晶片！');
+      }
+      const statKey = slot === 1 ? 'combat_atk' : 'combat_def';
+      const oldValue = Number(mon[`chip_slot_${slot}_val`]) || 0;
+      const chipValue = 5;
+      t.update(monRef, { [`chip_slot_${slot}`]: chip_id, [`chip_slot_${slot}_val`]: chipValue,
+        [statKey]: (mon[statKey] || 0) - oldValue + chipValue });
+      t.update(invRef, { quantity: invSnap.data().quantity - 1 });
+    });
     return { message: `已成功鑲嵌在插槽 ${slot}` };
   },
 
   unequipChip: async (monster_id, slot) => {
     const uid = getUserId();
-    const invQ = query(collection(db, 'user_inventory'), where('user_id', '==', uid), where('item_id', '==', 'chip_extractor'));
-    const invSnap = await getDocs(invQ);
-    if (invSnap.empty || invSnap.docs[0].data().quantity <= 0) throw new Error('需要晶片提取器！');
-
-    const monRef = doc(db, 'monsters', monster_id);
-    const monSnap = await getDoc(monRef);
-    const mon = monSnap.data();
-
-    await updateDoc(invSnap.docs[0].ref, { quantity: invSnap.docs[0].data().quantity - 1 });
-
-    const updateData = slot === 1 ? { chip_slot_1: null, combat_atk: mon.combat_atk - mon.chip_slot_1_val, chip_slot_1_val: 0 }
-      : { chip_slot_2: null, combat_def: mon.combat_def - mon.chip_slot_2_val, chip_slot_2_val: 0 };
-    await updateDoc(monRef, updateData);
+    if (![1, 2].includes(slot)) throw new Error('無效的晶片插槽！');
+    const { ref: monRef } = await ownMonster(monster_id);
+    const invRef = await ownedInventoryItem(uid, 'chip_extractor');
+    await runTransaction(db, async t => {
+      const monSnap = await t.get(monRef);
+      const invSnap = await t.get(invRef);
+      if (!monSnap.exists() || monSnap.data().user_id !== uid) throw new Error('怪獸不屬於您！');
+      if (!monSnap.data()[`chip_slot_${slot}`]) throw new Error('此插槽沒有晶片！');
+      if (!invSnap.exists() || invSnap.data().user_id !== uid || invSnap.data().item_id !== 'chip_extractor' || invSnap.data().quantity < 1) throw new Error('需要晶片提取器！');
+      const mon = monSnap.data();
+      const statKey = slot === 1 ? 'combat_atk' : 'combat_def';
+      t.update(monRef, { [`chip_slot_${slot}`]: null, [`chip_slot_${slot}_val`]: 0,
+        [statKey]: Math.max(0, (mon[statKey] || 0) - (mon[`chip_slot_${slot}_val`] || 0)) });
+      t.update(invRef, { quantity: invSnap.data().quantity - 1 });
+    });
     return { message: `成功拆卸插槽 ${slot} 的晶片` };
   },
 
-  breed: async (m1_id, m2_id) => {
+  breed: async (m1_id, m2_id, useCatalyst = false) => {
     const uid = getUserId();
-
-    // Check limit
+    if (!m1_id || !m2_id || m1_id === m2_id) throw new Error('請選擇兩隻不同的親代怪獸！');
     const q = query(collection(db, 'monsters'), where('user_id', '==', uid));
-    const querySnapshot = await getDocs(q);
-    const liveMonsters = querySnapshot.docs.filter(d => !d.data().is_dead);
-    if (liveMonsters.length >= 50) throw new Error('倉庫已滿 50 隻！');
-
-    const monRef1 = doc(db, 'monsters', m1_id);
-    const monRef2 = doc(db, 'monsters', m2_id);
-    const m1 = (await getDoc(monRef1)).data();
-    const m2 = (await getDoc(monRef2)).data();
-
-    if (m1.life_stage < 3 || m2.life_stage < 3) throw new Error('雙親必須至少為成熟期');
-
-    // Gene inheritance + mutation
-    const float = () => (Math.random() * 0.2) - 0.1; // -10% to +10%
-    const gBaseHp = ((m1.gene_hp + m2.gene_hp) / 2) * (1 + float());
-    const gBaseAtk = ((m1.gene_atk + m2.gene_atk) / 2) * (1 + float());
-    const gBaseDef = ((m1.gene_def + m2.gene_def) / 2) * (1 + float());
-    const gBaseSpd = ((m1.gene_spd + m2.gene_spd) / 2) * (1 + float());
-
-    // Phenotype mutation
-    const r = Math.random();
-    let mutMult = 1.0;
-    let mutStatus = 0;
-    if (r < 0.01) { mutMult = 1.30; mutStatus = 2; }
-    else if (r < 0.06) { mutMult = 1.20; mutStatus = 1; }
-
-    const newMonsterRef = doc(collection(db, 'monsters'));
-    await setDoc(newMonsterRef, {
-      user_id: uid,
-      parent_1_id: m1_id,
-      parent_2_id: m2_id,
-      name: '新生基因蛋',
-      generation: Math.max(m1.generation, m2.generation) + 1,
-      life_stage: 0,
-      type: 0,
-      age_days: 0,
-      fullness: 100,
-      cleanliness: 100,
-      is_sick: false,
-      is_dead: false,
-      gene_hp: gBaseHp,
-      gene_atk: gBaseAtk,
-      gene_def: gBaseDef,
-      gene_spd: gBaseSpd,
-      combat_hp: gBaseHp * mutMult,
-      combat_atk: gBaseAtk * mutMult,
-      combat_def: gBaseDef * mutMult,
-      combat_spd: gBaseSpd * mutMult,
-      mutation_status: mutStatus,
-      chip_slot_1: null,
-      chip_slot_2: null,
-      battles: 0,
-      wins: 0,
-      is_locked: false,
-      last_updated_at: new Date().toISOString()
+    const owned = await getDocs(q);
+    if (owned.size >= 50) throw new Error('倉庫已滿 50 隻！');
+    const m1Ref = doc(db, 'monsters', m1_id), m2Ref = doc(db, 'monsters', m2_id);
+    const userRef = doc(db, 'users', uid);
+    const catalystRef = useCatalyst ? await ownedInventoryItem(uid, 'breed_catalyst') : null;
+    await runTransaction(db, async t => {
+      const uDoc = await t.get(userRef);
+      const m1Doc = await t.get(m1Ref), m2Doc = await t.get(m2Ref);
+      const catDoc = catalystRef ? await t.get(catalystRef) : null;
+      const m1 = m1Doc.data(), m2 = m2Doc.data();
+      if (!uDoc.exists() || uDoc.data().gold < 200) throw new Error('繁衍需要 200G！');
+      if (!m1 || !m2 || m1.user_id !== uid || m2.user_id !== uid || m1.is_dead || m2.is_dead ||
+          m1.life_stage < 4 || m2.life_stage < 4) throw new Error('雙親必須是自己存活的成熟期以上怪獸！');
+      if (catalystRef && (!catDoc.exists() || catDoc.data().user_id !== uid ||
+          catDoc.data().item_id !== 'breed_catalyst' || catDoc.data().quantity < 1)) throw new Error('繁衍催化劑不足！');
+      const randGene = (a, b) => ((a + b) / 2) * (0.9 + Math.random() * 0.2);
+      const genes = {
+        gene_hp: randGene(m1.gene_hp, m2.gene_hp), gene_atk: randGene(m1.gene_atk, m2.gene_atk),
+        gene_def: randGene(m1.gene_def, m2.gene_def), gene_spd: randGene(m1.gene_spd, m2.gene_spd)
+      };
+      const roll = Math.random(), factor = useCatalyst ? 2 : 1;
+      const mutation_status = roll < 0.01 * factor ? 2 : roll < 0.06 * factor ? 1 : 0;
+      const mult = mutation_status === 2 ? 1.3 : mutation_status === 1 ? 1.2 : 1;
+      const newMonsterRef = doc(collection(db, 'monsters'));
+      t.update(userRef, { gold: uDoc.data().gold - 200 });
+      if (catalystRef) t.update(catalystRef, { quantity: catDoc.data().quantity - 1 });
+      t.set(newMonsterRef, {
+        user_id: uid, parent_1_id: m1_id, parent_2_id: m2_id, name: '新生基因蛋',
+        generation: Math.max(m1.generation || 1, m2.generation || 1) + 1,
+        life_stage: 1, type: 0, family: Math.random() < 0.5 ? m1.family || 1 : m2.family || 1,
+        age_days: 0, fullness: 100, cleanliness: 100, is_sick: false, is_dead: false,
+        starve_time_start: null, sick_time_start: null, neglect_count: 0, train_count: 0,
+        ...genes,
+        combat_hp: genes.gene_hp * mult, combat_atk: genes.gene_atk * mult,
+        combat_def: genes.gene_def * mult, combat_spd: genes.gene_spd * mult,
+        mutation_status, chip_slot_1: null, chip_slot_1_val: 0, chip_slot_2: null,
+        chip_slot_2_val: 0, battles: 0, wins: 0, is_locked: false,
+        last_updated_at: new Date().toISOString()
+      });
     });
-
-    return { message: "繁衍成功！獲得了一顆新生基因蛋！" };
+    return { message: '繁衍成功！支付 200G 並獲得一顆新生基因蛋！' };
   },
 
   getInventory: async () => {
