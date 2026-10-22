@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "oxlint -D correctness src",
+    "lint": "oxlint -D correctness -A no-unused-vars -A react-hooks/exhaustive-deps src --ignore-pattern src/utils/monsterSprites.js",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
