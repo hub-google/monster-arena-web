@@ -744,32 +744,55 @@ export const api = {
     return bSnap.data();
   },
 
-  attackRaidBoss: async (monster_id, damage) => {
+  attackRaidBoss: async (monster_id) => {
     const uid = getUserId();
     const userRef = doc(db, 'users', uid);
     const bossRef = doc(db, 'sys_config', 'raid_boss');
-
+    const monRef = doc(db, 'monsters', monster_id);
+    let damage = 0;
     let message = '';
-    await runTransaction(db, async (t) => {
-      const uDoc = await t.get(userRef);
-      if (uDoc.data().stamina < 15) throw new Error('體力不足');
-      t.update(userRef, { stamina: uDoc.data().stamina - 15 });
-
-      const bDoc = await t.get(bossRef);
-      if (!bDoc.exists() || !bDoc.data().is_active) throw new Error('世界王已被擊殺，請等待下一輪！');
-
-      let newHp = Math.max(0, (bDoc.data().current_hp || 0) - damage);
-      let isActive = newHp > 0;
-      t.update(bossRef, { current_hp: newHp, is_active: isActive });
-
-      message = isActive ? '持續激戰中！' : '世界王已被擊退！獲得豐厚獎勵！';
-
-      if (!isActive) {
-        // Boss killed, reward the killer
-        t.update(userRef, { gold: uDoc.data().gold + 5000 });
-      }
+    await runTransaction(db, async t => {
+      const u = await t.get(userRef);
+      const mon = await t.get(monRef);
+      const boss = await t.get(bossRef);
+      if (!u.exists() || (u.data().stamina || 0) < 15) throw new Error('體力不足！');
+      if (!mon.exists() || mon.data().user_id !== uid || mon.data().is_dead) throw new Error('請選擇自己的存活怪獸！');
+      if (!boss.exists() || !boss.data().is_active) throw new Error('世界王已被擊殺，請等待下一輪！');
+      const m = mon.data();
+      const advantage = m.type === 3 ? 1.3 : m.type === 2 ? 0.7 : 1;
+      damage = Math.max(1, Math.round(m.combat_atk * 20 * advantage * (0.9 + Math.random() * 0.2)));
+      const currentHp = boss.data().current_hp || 0;
+      const nextHp = Math.max(0, currentHp - damage);
+      t.update(userRef, { stamina: u.data().stamina - 15,
+        gold: nextHp === 0 ? (u.data().gold || 0) + 5000 : u.data().gold });
+      t.update(bossRef, { current_hp: nextHp, is_active: nextHp > 0 });
+      message = nextHp === 0 ? '世界王已被擊退！獲得 5000G！' : '持續激戰中！';
     });
-    return { message };
+    return { damage, message };
+  },
+
+  recordBattleResult: async (monsterId, battleId, won) => {
+    const uid = getUserId();
+    if (!battleId || typeof battleId !== 'string' || battleId.length > 100 || typeof won !== 'boolean') {
+      throw new Error('無效的戰鬥紀錄！');
+    }
+    const monsterRef = doc(db, 'monsters', monsterId);
+    const battleRef = doc(db, 'battle_records', `${uid}_${battleId}`);
+    let recorded = false;
+    await runTransaction(db, async t => {
+      const monster = await t.get(monsterRef);
+      const battle = await t.get(battleRef);
+      if (!monster.exists() || monster.data().user_id !== uid) throw new Error('怪獸不存在！');
+      if (battle.exists()) return;
+      t.update(monsterRef, {
+        battles: (monster.data().battles || 0) + 1,
+        wins: (monster.data().wins || 0) + (won ? 1 : 0)
+      });
+      t.set(battleRef, { user_id: uid, monster_id: monsterId, won, timestamp: new Date().toISOString() });
+      recorded = true;
+    });
+    if (recorded) await api.trackQuestProgress('battle', 1);
+    return { message: won ? '勝場紀錄已更新！' : '戰鬥紀錄已更新。' };
   },
 
   // --- Social & Chat ---
