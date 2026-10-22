@@ -13,12 +13,18 @@ const firebaseApp = initializeApp({
   appId: "1:36423258503:web:61049c5b6c745cd1368322"
 });
 const db = getFirestore(firebaseApp);
-// connectFirestoreEmulator(db, '127.0.0.1', 8080);
+if (process.env.FIRESTORE_EMULATOR_HOST) {
+  const [host, port] = process.env.FIRESTORE_EMULATOR_HOST.split(':');
+  connectFirestoreEmulator(db, host, Number(port));
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPORT_DIR = path.join(__dirname, '../../測試報告');
 
+// These scenarios mutate database contents and must never run against production.
+test.skip(!process.env.FIRESTORE_EMULATOR_HOST || !process.env.RUN_DESTRUCTIVE_E2E,
+  'Destructive legacy scenarios are permitted only with an explicit Firebase emulator.');
 test.describe('Monster Arena - Full 14 Scenarios Test Plan', () => {
   let uniqueId = Date.now();
   let userEmail = `test_${uniqueId}@test.com`;
