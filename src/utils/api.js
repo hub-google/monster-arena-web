@@ -68,7 +68,7 @@ export const api = {
       const result = await supabase.rpc('game_ensure_profile');
       throwIfError(result.error);
     }
-    return { user: data.user };
+    return { user: data.user, requiresEmailConfirmation: !data.session };
   },
   login: async (usernameOrEmail, password) => {
     const input = usernameOrEmail.trim();
