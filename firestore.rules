@@ -88,6 +88,12 @@ service cloud.firestore {
         && request.resource.data.channel == 'world';
       allow update, delete: if false;
     }
+    match /battle_records/{battleId} {
+      allow get, list: if signedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.won is bool;
+      allow update, delete: if false;
+    }
     match /sys_config/{configId} {
       allow read: if signedIn();
       allow create: if signedIn() && configId == 'raid_boss'
