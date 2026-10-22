@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/monster-arena-web/',
+  base: process.env.VITE_PREVIEW === 'true' ? '/monster-arena-web/preview/' : '/monster-arena-web/',
 })
