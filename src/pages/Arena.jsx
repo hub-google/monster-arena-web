@@ -115,14 +115,12 @@ export default function Arena({
   }, [battleState, setBattleState]);
 
   const sendWorldChat = () => {
-    if (!chatMessage.trim()) return;
-    
-    // Save to Firebase Database `messages` collection (unified)
-    api.sendMessage('world', chatMessage).catch(err => {
-      setMessage(err.message);
-    });
-    
-    setChatMessage('');
+    if (!chatMessage.trim() || loading) return;
+    setLoading(true);
+    api.sendMessage('world', chatMessage.trim())
+      .then(() => setChatMessage(''))
+      .catch(err => setMessage(err.message))
+      .finally(() => setLoading(false));
   };
 
   const handleChallenge = (targetPlayerId) => {
@@ -283,7 +281,7 @@ export default function Arena({
               <div ref={logsEndRef} />
             </div>
             <div className="flex gap-2">
-              <input type="text" value={chatMessage} onChange={(e) => setChatMessage(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendWorldChat()} placeholder="輸入訊息..." className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-colors" />
+              <input type="text" value={chatMessage} onChange={(e) => setChatMessage(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && sendWorldChat()} placeholder="輸入訊息..." className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-colors" />
               <button onClick={sendWorldChat} className="neon-button neon-button-primary px-6 py-3 font-bold">發送</button>
             </div>
           </div>
@@ -328,15 +326,13 @@ export default function Arena({
             <div className="glass-card p-4 flex flex-col gap-2">
               <h3 className="text-sm font-bold text-slate-300 mb-2 border-b border-slate-700 pb-2">好友列表</h3>
               {friends.length === 0 ? <span className="text-center italic mt-4 text-slate-500">尚無好友。前往世界頻道認識新朋友吧！</span> : friends.map(f => (
-                <div key={f.user_id_1 + '-' + f.user_id_2} className="flex justify-between items-center p-3 bg-slate-800/50 border border-slate-700/50 rounded-lg">
-                  <span className="font-bold text-white flex items-center gap-2">🤝 {f.friend_username}</span>
+                <div key={f.friend_id} className="flex justify-between items-center p-3 bg-slate-800/50 border border-slate-700/50 rounded-lg">
+                  <span className="font-bold text-white flex items-center gap-2">🤝 {f.friend_name}</span>
                   <div className="flex items-center gap-3">
                     <span className={`text-xs font-bold px-2 py-1 rounded ${f.status === 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                      {f.status === 0 ? '🕒 待確認' : '✅ 已成為好友'}
+                      ✅ 已成為好友
                     </span>
-                    {f.status === 0 && f.friend_id !== user.user_id && (
-                      <button onClick={() => api.acceptFriend(f.friend_id).then(refreshData)} className="px-3 py-1 bg-emerald-600 text-white font-bold rounded-md hover:bg-emerald-500 transition">同意</button>
-                    )}
+                    
                   </div>
                 </div>
               ))}
