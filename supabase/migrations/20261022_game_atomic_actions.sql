@@ -185,7 +185,7 @@ begin
   elsif p_action='equip' then
     v_slot := (p_data->>'slot')::int;
     if v_slot not in (1,2) then raise exception '無效插槽'; end if;
-    if v_m.life_stage < case when v_slot=1 then 4 else 5 end then raise exception '怪獸尚未開啟晶片插槽'; end if;
+    if v_m.life_stage < (case when v_slot=1 then 4 else 5 end) then raise exception '怪獸尚未開啟晶片插槽'; end if;
     if v_inv.item_type<>4 or v_item='chip_extractor' then raise exception '道具不是晶片'; end if;
     v_old:=case when v_slot=1 then coalesce(v_m.chip_slot_1_val,0) else coalesce(v_m.chip_slot_2_val,0) end;
     update public.user_inventory set quantity=quantity-1 where inventory_id=v_inv.inventory_id;
