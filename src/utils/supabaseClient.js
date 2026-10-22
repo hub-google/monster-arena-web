@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://unapiwajmgqqtdkixaab.supabase.co';
-const supabaseAnonKey = 'sb_publishable_L09XC4Tekm6cZaPTTczm3g_Aap-SOSy';
+// Original game backend. Keep this project reference to preserve all existing accounts.
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://fanffwnhkxpfhttylntw.supabase.co';
+const publishableKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_fsrieSLUXlq-_WDpPY9K_w_eO-dN_jT';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Publishable API keys are designed for browsers. NEVER expose service_role.
+export const supabase = createClient(supabaseUrl, publishableKey, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
