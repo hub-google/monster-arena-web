@@ -22,6 +22,7 @@ export default function Social({ user }) {
   // Friends State
   const [friendUUID, setFriendUUID] = useState('');
   const [friendsList, setFriendsList] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,8 +44,9 @@ export default function Social({ user }) {
   const loadFriends = async () => {
     setLoading(true);
     try {
-      const list = await api.getFriends();
+      const [list, requests] = await Promise.all([api.getFriends(),api.getFriendRequests()]);
       setFriendsList(list);
+      setPendingRequests(requests);
     } catch (err) {
       setMessage(err.message);
     }
@@ -183,7 +185,7 @@ export default function Social({ user }) {
             <div className="flex gap-2">
               <input 
                 type="text" 
-                placeholder="請輸入好友的 UUID" 
+                placeholder="輸入好友 UUID 或帳號名稱" 
                 value={friendUUID}
                 onChange={e => setFriendUUID(e.target.value)}
                 className="flex-1 bg-slate-800 border border-slate-700 rounded px-2 text-xs text-white focus:border-cyan-500 outline-none"
@@ -198,6 +200,23 @@ export default function Social({ user }) {
             </div>
           </div>
           
+          {pendingRequests.length > 0 && (
+            <div className="glass-card p-4 border-cyan-500/30 flex flex-col gap-2">
+              <h3 className="text-amber-400 font-bold text-sm">待確認好友邀請 ({pendingRequests.length})</h3>
+              {pendingRequests.map(r => (
+                <div key={r.friend_record_id} className="flex justify-between items-center gap-2">
+                  <span className="text-sm text-slate-300">{r.friend_name}</span>
+                  <button disabled={loading} className="neon-button neon-button-success px-3 py-2 text-xs"
+                    onClick={async()=>{
+                      setLoading(true);
+                      try{ const result=await api.acceptFriend(r.user_id); setMessage(result.message); await loadFriends(); }
+                      catch(err){setMessage(err.message);}
+                      finally{setLoading(false);}
+                    }}>接受邀請</button>
+                </div>
+              ))}
+            </div>
+          )}
           <h3 className="text-slate-300 font-bold text-sm">好友列表 ({friendsList.length})</h3>
           <div className="flex-1 overflow-y-auto space-y-3 pb-10">
             {loading ? (
