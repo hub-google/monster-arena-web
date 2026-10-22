@@ -1,52 +1,52 @@
 # Monster Arena Web
 
-A Vite + React monster-raising web game with Firebase Authentication and Firestore.
+怪獸養成／競技場。沿用原始的 **Supabase Game 專案**，不再將既有帳號改接 Firebase。
 
-- **Play:** https://hub-google.github.io/monster-arena-web/
-- **Source:** https://github.com/hub-google/monster-arena-web
-- **CI and deploy status:** https://github.com/hub-google/monster-arena-web/actions
+- 正式網站：https://hub-google.github.io/monster-arena-web/
+- 修復預覽：https://hub-google.github.io/monster-arena-web/preview/
+- 專案：https://github.com/hub-google/monster-arena-web
+- GitHub Actions：https://github.com/hub-google/monster-arena-web/actions
+- 後端：Supabase project `fanffwnhkxpfhttylntw` (Game)
 
-## Local development
+## 修復的功能
 
-Node.js 22 is recommended.
+- **登入、註冊**：保持既有 Supabase Auth 帳號／session，修復錯誤轉 Firebase 的問題。未完成 Email 驗證時提供提示。
+- **怪獸養成**：時間累計飽食／清潔／年齡（小數值）；避免重新整理讓衰減無效、避免年老衰減重複計算。
+- **金幣與物品**：孵化、餵食、治療、訓練、購物等走資料庫交易（`game_action`）；可拒絕負數、無效物品、餘額不足及非本人怪獸。
+- **繁衍／晶片／究極進化**：檢查雙親有效、道具及金幣原子扣除、固定插槽需求、避免屬性重複疊加；究極進化檢查 50 戰、70% 勝率。
+- **戰鬥與任務**：戰績透過 `battle_records` 去重；任務進度與主操作一起更新、獎勵不可重領。
+- **世界王**：伺服器端依本人怪獸數值計算傷害；15 體力及王血量交易式扣除，避免競爭更新遺失。
+- **好友、聊天與贈送體力**：支援好友邀請與接受、聊天保留紀錄且節流、體力由收禮者領取。
+- **公會**：建立、加入、退出、捐獻、貢獻商店走正確 Supabase 欄位與交易。
 
-```sh
+## 資料庫遷移
+
+遷移檔案已放在 `supabase/migrations/`：
+
+- `20261022_game_atomic_actions.sql` — 原子交易、每日任務及戰鬥紀錄。
+- `20261022_profile_friends_gifts.sql` — 舊帳號暱稱、好友邀請、體力禮物。
+
+對原本 **Game** 專案已套用以上遷移，未更換資料庫專案，也沒有刪除舊玩家帳號。不要對同一個遷移執行手動刪表或清空資料庫。
+
+## 開發與測試
+
+需要 Node.js 22。直接執行：
+
+```bash
 npm install
-npm run dev
 npm run lint
 npm run build
+npm run dev
 ```
 
-Production builds require `VITE_FIREBASE_API_KEY` — do not use any test or guessed API key. Retrieve the key from the **same** Firebase project that contains existing player accounts (`monster-arena-web-app`) under Firebase Console → Project settings → General → Your apps → Web app → SDK setup/config. The Web API key is a public Firebase app identifier, not a service-account secret.
+`master` 更新時經 GitHub Actions 執行 lint、Supabase Auth 健康檢查、Vite build、Playwright Chromium smoke test，通過才部署 `gh-pages`。修復分支 `supabase-stable-fixes` 只部署至 `/preview/`，不覆蓋正式登入頁。
 
-### Fixing `auth/api-key-not-valid` on GitHub Pages
+SQL 操作已用 `BEGIN ... ROLLBACK` 的交易測試驗證：孵化、購物、餵食、繁衍、每日任務、戰績去重、公會與好友收禮；測試沒有留下怪獸、戰績或公會。
 
-1. Open [Firebase Console](https://console.firebase.google.com/project/monster-arena-web-app/settings/general), choose the existing web app and copy the `apiKey` shown in its `firebaseConfig`. If there is no web app, register one **in that same project** (do not create a second project).
-2. Open [repository Actions secrets](https://github.com/hub-google/monster-arena-web/settings/secrets/actions) and create a repository secret called **`VITE_FIREBASE_API_KEY`** with that value (no quotes). A repository Actions variable of the same name also works; secret takes priority.
-3. Run [Build, check and deploy GitHub Pages](https://github.com/hub-google/monster-arena-web/actions/workflows/deploy.yml) using **Run workflow** on `master`. A successful run validates the Firebase Authentication endpoint with a read-only request, builds, runs Chromium smoke tests and publishes.
-4. Make sure **Authentication → Sign-in method → Email/Password** is enabled for this Firebase project. If the validation fails due to API restrictions, allow the Identity Toolkit API and `https://hub-google.github.io` (or the project's intended referrer configuration) in Google Cloud API key settings.
+> `tests/run_tests.spec.js` 和 `tests/run_all_scenarios.spec.js` 是**舊 Firebase 測試**，不得對正式 Supabase 專案執行。它們已被環境變數保護且不在部署 CI 中執行。
 
-The deployment **intentionally stops** if the Web API key is missing or rejected, to avoid releasing a broken login screen again. No real account or password is needed for the preflight.
+## 尚待處理的安全事項
 
-Local development now uses the production Firebase configuration by default. Set `VITE_FIREBASE_API_KEY=...` in `.env.local` for non-emulator development. **Use the Firebase emulators when developing or testing changes that write game data.** Create a local `.env.local` containing `VITE_USE_FIREBASE_EMULATORS=true` and run `npx firebase emulators:start` alongside Vite. Never run the historical destructive E2E test suites against production.
+原本 Game 專案的 `guilds`、`guild_members`、`guild_applications`、`friends`、`challenges`、`daily_quests` 六個資料表 **沒有啟用 RLS**；不能直接啟用而不先建立正確的政策，否則可能阻斷現有功能。請參考 `docs/SECURITY.md`，目前不將此項宣稱為完成。
 
-## Deployment
-
-Commits to `master` automatically run lint, build and a real Chromium browser smoke test, then publish the built `dist/` folder to the `gh-pages` branch. GitHub Pages continues to serve that branch under `/monster-arena-web/`. The build also verifies the Firebase Authentication API key with a non-destructive request. The Chromium smoke test checks that the login and registration UI renders without JavaScript exceptions; it does **not** validate actual user sign-in or every authenticated game flow.
-
-## Important: Firebase rules must be published separately
-
-`firestore.rules` in this repository has been changed from its original open-to-everyone policy to owner-scoped/private-data rules. **GitHub Pages does not deploy Firestore rules.** To activate these permissions on Firebase project `monster-arena-web-app`, an administrator must review and deploy them:
-
-```sh
-npx firebase-tools login
-npx firebase-tools deploy --only firestore:rules --project monster-arena-web-app
-```
-
-Until the Firebase console confirms a successful rules deployment, the live database may still be governed by the original permissive rules. Rules changes must be tested in the emulator with representative existing accounts first. Existing accounts publish their public username into `public_profiles` upon sign-in, so older users may not appear in friend/leader lookups until they sign in again.
-
-**Remaining architectural limitation:** this is a client-driven prototype. Owner-only Firestore rules prevent users from modifying another player's private profile or monsters, but do not prevent a player from falsifying their own gold, stamina, quest or combat results by calling Firestore directly. For competitive or paid gameplay, move authoritative inventory/economy/raid/battle updates into authenticated Cloud Functions or another trusted backend, and test denial cases before enabling purchases.
-
-## Tests
-
-The new `tests/smoke.spec.js` is non-destructive and is run automatically in CI. The older `tests/run_tests.spec.js` and `tests/run_all_scenarios.spec.js` modify Firestore and are disabled unless both `FIRESTORE_EMULATOR_HOST` and `RUN_DESTRUCTIVE_E2E` are explicitly provided. The old test plans require additional updates before they can be relied upon as end-to-end regression coverage.
+另一個限制：原有瀏覽器直接修改自己金幣／怪獸數值的 RLS 權限，以及客戶端決定勝負的模式，尚不足以防止惡意作弊。這次已將 UI 主要經濟操作改為資料庫原子交易，但正式競技或交易上線前，仍須收緊原有直接寫入政策、補足可信任伺服器端戰鬥判定及授權測試。
