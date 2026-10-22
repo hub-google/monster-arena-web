@@ -29,6 +29,18 @@ jobs:
         run: npm run lint
       - name: Build site
         run: npm run build
+      - name: Install Chromium for smoke test
+        run: npx playwright install --with-deps chromium
+      - name: Run browser smoke test against build
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173/monster-arena-web/
+        run: |
+          npm run preview -- --host 127.0.0.1 > /tmp/monster-arena-vite.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4173/monster-arena-web/ >/dev/null; then break; fi
+            sleep 1
+          done
+          npx playwright test tests/smoke.spec.js --project=chromium
       - name: Publish to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
