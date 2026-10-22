@@ -296,6 +296,7 @@ begin
     update public.daily_quests set claimed=array_append(coalesce(claimed,array[]::text[]),v_text)
       where quest_id=v_quest.quest_id;
     update public.users set gold=gold+v_reward where user_id=v_uid;
+    v_key:=null;
   elsif p_action in ('guild_create','guild_join','guild_leave','guild_donate','guild_buy') then
     select * into v_member from public.guild_members where user_id=v_uid limit 1 for update;
     if p_action='guild_create' then
@@ -367,3 +368,7 @@ begin
 end $$;
 revoke all on function public.game_action(text,jsonb) from public,anon;
 grant execute on function public.game_action(text,jsonb) to authenticated;
+
+-- Existing old clients expect the world boss status row to be visible before their first attack.
+insert into public.raid_boss(name,current_hp,max_hp,is_active)
+select '數碼世界王',500000,500000,true where not exists (select 1 from public.raid_boss);
