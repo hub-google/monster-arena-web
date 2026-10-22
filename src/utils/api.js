@@ -279,30 +279,34 @@ export const api = {
 
   feed: async (monster_id, item_id) => {
     const uid = getUserId();
-    const { ref: monRef, monster: mon } = await ownMonster(monster_id);
-    if (mon.is_dead) throw new Error('怪獸狀態異常！');
-
-    let newFullness = mon.fullness;
-    let newCleanliness = mon.cleanliness;
-
-    if (item_id === 'feed_basic') {
-      // 0-cost basic feed
-      newFullness = Math.min(100, mon.fullness + 10);
-      newCleanliness = Math.max(0, mon.cleanliness - 30); // Side effect
-    } else {
-      const invQ = query(collection(db, 'user_inventory'), where('user_id', '==', uid), where('item_id', '==', item_id));
-      const invSnap = await getDocs(invQ);
-      if (invSnap.empty || invSnap.docs[0].data().quantity <= 0) throw new Error('沒有足夠的食物！');
-      const invDoc = invSnap.docs[0];
-      await updateDoc(invDoc.ref, { quantity: invDoc.data().quantity - 1 });
-
-      if (item_id === 'meat_basic') newFullness = Math.min(100, mon.fullness + 20);
-      else if (item_id === 'meat_premium') newFullness = Math.min(100, mon.fullness + 60);
-      else if (item_id === 'energy_drink') newFullness = Math.min(100, mon.fullness + 30);
+    const { ref: monRef } = await ownMonster(monster_id);
+    const effects = { feed_basic: 10, meat_basic: 20, meat_premium: 60, energy_drink: 30 };
+    if (!Object.hasOwn(effects, item_id)) throw new Error('不支援的食物！');
+    const invRef = item_id === 'feed_basic' ? null : await ownedInventoryItem(uid, item_id);
+    await runTransaction(db, async t => {
+      const monSnap = await t.get(monRef);
+      const invSnap = invRef ? await t.get(invRef) : null;
+      if (!monSnap.exists() || monSnap.data().user_id !== uid || monSnap.data().is_dead) throw new Error('怪獸狀態異常！');
+      if (invRef && (!invSnap.exists() || invSnap.data().user_id !== uid || invSnap.data().item_id !== item_id || invSnap.data().quantity < 1)) {
+        throw new Error('沒有足夠的食物！');
+      }
+      const m = monSnap.data();
+      t.update(monRef, {
+        fullness: Math.min(100, (m.fullness || 0) + effects[item_id]),
+        cleanliness: item_id === 'feed_basic' ? Math.max(0, (m.cleanliness || 0) - 30) : m.cleanliness,
+        starve_time_start: null
+      });
+      if (invRef) t.update(invRef, { quantity: invSnap.data().quantity - 1 });
+    });
+    // Energy drink additionally restores 20 stamina.
+    if (item_id === 'energy_drink') {
+      const userRef = doc(db, 'users', uid);
+      await runTransaction(db, async t => {
+        const u = await t.get(userRef);
+        if (u.exists()) t.update(userRef, { stamina: Math.min(u.data().max_stamina || 100, (u.data().stamina || 0) + 20) });
+      });
     }
-
-    await updateDoc(monRef, { fullness: newFullness, cleanliness: newCleanliness, starve_time_start: null });
-    api.trackQuestProgress('feed', 1).catch(e => console.warn(e));
+    api.trackQuestProgress('feed', 1).catch(console.warn);
     return { message: '餵食成功！' };
   },
 
@@ -316,23 +320,21 @@ export const api = {
 
   heal: async (monster_id, item_id = 'medicine_standard') => {
     const uid = getUserId();
-    const { ref: monRef, monster: mon } = await ownMonster(monster_id);
-    if (mon.is_dead) throw new Error('怪獸狀態異常！');
-
-    let newHp = mon.combat_hp;
-
-    if (item_id === 'heal_basic') {
-      // 0-cost basic heal
-      newHp = Math.max(1, mon.combat_hp * 0.8); // Side effect: lose 20% current HP
-    } else {
-      const invQ = query(collection(db, 'user_inventory'), where('user_id', '==', uid), where('item_id', '==', 'medicine_standard'));
-      const invSnap = await getDocs(invQ);
-      if (invSnap.empty || invSnap.docs[0].data().quantity <= 0) throw new Error('沒有特效藥，請到商店購買！');
-      await updateDoc(invSnap.docs[0].ref, { quantity: invSnap.docs[0].data().quantity - 1 });
-    }
-
-    await updateDoc(monRef, { is_sick: false, sick_time_start: null, combat_hp: newHp });
-    return { message: '注射藥物，怪獸已經康復！' };
+    const { ref: monRef } = await ownMonster(monster_id);
+    if (!['heal_basic', 'medicine_standard'].includes(item_id)) throw new Error('不支援的藥物！');
+    const invRef = item_id === 'heal_basic' ? null : await ownedInventoryItem(uid, 'medicine_standard');
+    await runTransaction(db, async t => {
+      const monSnap = await t.get(monRef);
+      const invSnap = invRef ? await t.get(invRef) : null;
+      if (!monSnap.exists() || monSnap.data().user_id !== uid || monSnap.data().is_dead) throw new Error('怪獸狀態異常！');
+      if (!monSnap.data().is_sick) throw new Error('怪獸目前沒有生病！');
+      if (invRef && (!invSnap.exists() || invSnap.data().user_id !== uid || invSnap.data().item_id !== 'medicine_standard' || invSnap.data().quantity < 1)) throw new Error('沒有特效藥，請到商店購買！');
+      const hp = monSnap.data().combat_hp || 1;
+      t.update(monRef, { is_sick: false, sick_time_start: null,
+        combat_hp: item_id === 'heal_basic' ? Math.max(1, Math.floor(hp * 0.8)) : hp });
+      if (invRef) t.update(invRef, { quantity: invSnap.data().quantity - 1 });
+    });
+    return { message: '治療成功！' };
   },
 
   rename: async (monster_id, new_name) => {
@@ -376,22 +378,20 @@ export const api = {
 
   evolve: async (monster_id) => {
     const uid = getUserId();
-    const monRef = doc(db, 'monsters', monster_id);
-    const monSnap = await getDoc(monRef);
-    const mon = monSnap.data();
-
-    if (mon.life_stage !== 4 || mon.age_days < 7) throw new Error('尚未達到究極體進化條件');
-    const winRate = mon.battles > 0 ? mon.wins / mon.battles : 0;
-    if (mon.battles < 50 || winRate < 0.7) throw new Error('戰鬥場次或勝率不達標');
-
-    const invQ = query(collection(db, 'user_inventory'), where('user_id', '==', uid), where('item_id', '==', 'ultimate_core'));
-    const invSnap = await getDocs(invQ);
-    if (invSnap.empty || invSnap.docs[0].data().quantity <= 0) throw new Error('缺少究極進化核心！');
-
-    await updateDoc(invSnap.docs[0].ref, { quantity: invSnap.docs[0].data().quantity - 1 });
-    await updateDoc(monRef, { life_stage: 5, combat_hp: mon.combat_hp * 1.5, combat_atk: mon.combat_atk * 1.5 });
-
-    return { message: '🧬 消耗究極進化核心，究極進化成功！戰鬥數值大幅提升！' };
+    const { ref: monRef } = await ownMonster(monster_id);
+    const invRef = await ownedInventoryItem(uid, 'ultimate_core');
+    await runTransaction(db, async t => {
+      const monSnap = await t.get(monRef);
+      const invSnap = await t.get(invRef);
+      if (!monSnap.exists() || monSnap.data().user_id !== uid) throw new Error('怪獸不屬於您！');
+      const mon = monSnap.data();
+      if (mon.is_dead || mon.life_stage !== 5 || mon.age_days < 7) throw new Error('尚未達到究極體進化條件');
+      if (mon.battles < 50 || mon.wins / mon.battles < 0.7) throw new Error('戰鬥場次或勝率不達標');
+      if (!invSnap.exists() || invSnap.data().user_id !== uid || invSnap.data().item_id !== 'ultimate_core' || invSnap.data().quantity < 1) throw new Error('缺少究極進化核心！');
+      t.update(invRef, { quantity: invSnap.data().quantity - 1 });
+      t.update(monRef, { life_stage: 6, combat_hp: mon.combat_hp * 1.5, combat_atk: mon.combat_atk * 1.5 });
+    });
+    return { message: '究極進化成功！戰鬥數值大幅提升！' };
   },
 
   release: async (monster_id) => {
@@ -528,93 +528,77 @@ export const api = {
 
   buyItem: async (item_id, quantity = 1) => {
     const uid = getUserId();
-    const userRef = doc(db, 'users', uid);
-
     const PRICES = {
-      'meat_basic': 10,
-      'meat_premium': 50,
-      'energy_drink': 100,
-      'medicine_standard': 200,
-      'vitamin': 50,
-      'breed_catalyst': 500,
-      'ultimate_core': 1000
+      meat_basic: 10, meat_premium: 50, energy_drink: 100,
+      medicine_standard: 200, vitamin: 50, breed_catalyst: 500,
+      ultimate_core: 1000
     };
-
-    const cost = (PRICES[item_id] || 9999) * quantity;
-
-    await runTransaction(db, async (t) => {
+    if (!Object.hasOwn(PRICES, item_id)) throw new Error('未知商品！');
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) throw new Error('購買數量需介於 1～99！');
+    const cost = PRICES[item_id] * quantity;
+    const userRef = doc(db, 'users', uid);
+    const invRef = await ownedInventoryItem(uid, item_id);
+    await runTransaction(db, async t => {
       const uDoc = await t.get(userRef);
-      if (uDoc.data().gold < cost) throw new Error('金幣不足！');
+      const invDoc = await t.get(invRef);
+      if (!uDoc.exists() || (uDoc.data().gold || 0) < cost) throw new Error('金幣不足！');
+      if (invDoc.exists() && (invDoc.data().user_id !== uid || invDoc.data().item_id !== item_id)) throw new Error('背包資料異常！');
       t.update(userRef, { gold: uDoc.data().gold - cost });
-
-      const invQ = query(collection(db, 'user_inventory'), where('user_id', '==', uid), where('item_id', '==', item_id));
-      const invSnap = await getDocs(invQ);
-      if (invSnap.empty) {
-        const newInvRef = doc(collection(db, 'user_inventory'));
-        // item_type: 1=feed, 2=med, 3=breed
-        let type = 1;
-        if (item_id.includes('medicine') || item_id === 'vitamin') type = 2;
-        if (item_id === 'breed_catalyst') type = 3;
-        if (item_id === 'ultimate_core') type = 5;
-        t.set(newInvRef, { user_id: uid, item_id, item_type: type, quantity });
+      if (invDoc.exists()) {
+        t.update(invRef, { quantity: (invDoc.data().quantity || 0) + quantity });
       } else {
-        const invDoc = invSnap.docs[0];
-        t.update(invDoc.ref, { quantity: invDoc.data().quantity + quantity });
+        const type = item_id === 'breed_catalyst' ? 3 : item_id === 'ultimate_core' ? 5
+          : ['medicine_standard','vitamin'].includes(item_id) ? 2 : 1;
+        t.set(invRef, { user_id: uid, item_id, item_type: type, quantity });
       }
     });
-
     return { message: `成功花費 ${cost}G 購買 ${item_id} x${quantity}！` };
   },
 
   // --- Daily Quests ---
   trackQuestProgress: async (actionType, count = 1) => {
-    try {
-      const uid = getUserId();
-      const now = new Date();
-      const dateStr = now.toISOString().split('T')[0];
-      const questRef = doc(db, 'daily_quests', `${uid}_${dateStr}`);
-      const qSnap = await getDoc(questRef);
-      if (!qSnap.exists()) {
-        await setDoc(questRef, { user_id: uid, date: dateStr, feed_count: 0, train_count: 0, battle_count: 0, claimed: [] });
-      }
-      await updateDoc(questRef, {
-        [`${actionType}_count`]: (qSnap.exists() ? (qSnap.data()[`${actionType}_count`] || 0) : 0) + count
-      });
-    } catch (e) {
-      console.warn('Failed to track quest progress', e);
-    }
+    if (!['feed','clean','train','battle'].includes(actionType) || !Number.isInteger(count) || count < 1) return;
+    const uid = getUserId();
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const questRef = doc(db, 'daily_quests', `${uid}_${dateStr}`);
+    await runTransaction(db, async t => {
+      const snap = await t.get(questRef);
+      const current = snap.exists() ? snap.data() : { user_id: uid, date: dateStr, claimed: [] };
+      if (current.user_id !== uid) throw new Error('任務狀態無效');
+      t.set(questRef, { ...current, [`${actionType}_count`]: (current[`${actionType}_count`] || 0) + count });
+    });
   },
 
   getDailyQuests: async () => {
     const uid = getUserId();
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    const questRef = doc(db, 'daily_quests', `${uid}_${dateStr}`);
-    const qSnap = await getDoc(questRef);
-    if (!qSnap.exists()) {
-      return { feed_count: 0, train_count: 0, battle_count: 0, claimed: [] };
-    }
-    return qSnap.data();
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const snap = await getDoc(doc(db, 'daily_quests', `${uid}_${dateStr}`));
+    return snap.exists() ? snap.data() : { feed_count: 0, clean_count: 0, train_count: 0, battle_count: 0, claimed: [] };
   },
 
-  claimQuest: async (questId, rewardGold) => {
+  claimQuest: async (questId) => {
     const uid = getUserId();
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+    const CONFIG = {
+      feed_3: { key: 'feed_count', target: 3, reward: 100 },
+      clean_1: { key: 'clean_count', target: 1, reward: 50 },
+      train_2: { key: 'train_count', target: 2, reward: 150 },
+      battle_2: { key: 'battle_count', target: 2, reward: 150 }
+    };
+    const quest = CONFIG[questId];
+    if (!quest) throw new Error('不存在的任務');
+    const dateStr = new Date().toISOString().slice(0, 10);
     const questRef = doc(db, 'daily_quests', `${uid}_${dateStr}`);
     const userRef = doc(db, 'users', uid);
-
-    await runTransaction(db, async (t) => {
+    await runTransaction(db, async t => {
       const qDoc = await t.get(questRef);
-      if (!qDoc.exists()) throw new Error('無任務資料');
-      const data = qDoc.data();
-      if (data.claimed && data.claimed.includes(questId)) throw new Error('已經領取過了！');
-
       const uDoc = await t.get(userRef);
-      t.update(userRef, { gold: (uDoc.data().gold || 0) + rewardGold });
-      t.update(questRef, { claimed: [...(data.claimed || []), questId] });
+      if (!qDoc.exists() || qDoc.data().user_id !== uid || (qDoc.data()[quest.key] || 0) < quest.target) throw new Error('任務尚未完成');
+      if ((qDoc.data().claimed || []).includes(questId)) throw new Error('已經領取過了！');
+      if (!uDoc.exists()) throw new Error('使用者不存在');
+      t.update(userRef, { gold: (uDoc.data().gold || 0) + quest.reward });
+      t.update(questRef, { claimed: [...(qDoc.data().claimed || []), questId] });
     });
-    return { message: `領取成功！獲得 ${rewardGold}G` };
+    return { message: `領取成功！獲得 ${quest.reward}G` };
   },
 
   getFriends: async () => {
