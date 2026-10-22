@@ -1,8 +1,109 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function own(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function guildLeader(guildId) {
+      return signedIn() &&
+        get(/databases/$(database)/documents/guilds/$(guildId)).data.leader_id == request.auth.uid;
+    }
+
+    // Private player wallet and account profile: never publicly readable.
+    match /users/{uid} {
+      allow get, list, create, update, delete: if own(uid);
+    }
+    // Public directory deliberately contains only a display name.
+    match /public_profiles/{uid} {
+      allow read: if signedIn();
+      allow create, update: if own(uid)
+        && request.resource.data.keys().hasOnly(['username'])
+        && request.resource.data.username is string
+        && request.resource.data.username.size() >= 1
+        && request.resource.data.username.size() <= 30;
+      allow delete: if own(uid);
+    }
+    match /monsters/{monsterId} {
+      // Other players' pet appearance is visible in the social plaza.
+      allow get, list: if signedIn();
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.user_id == request.auth.uid
+        && (request.method == 'delete' || request.resource.data.user_id == resource.data.user_id);
+    }
+    match /user_inventory/{itemId} {
+      allow get, list, delete: if signedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update: if signedIn() && resource.data.user_id == request.auth.uid
+        && request.resource.data.user_id == resource.data.user_id;
+    }
+    match /daily_quests/{questId} {
+      allow get, list, delete: if signedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update: if signedIn() && resource.data.user_id == request.auth.uid
+        && request.resource.data.user_id == resource.data.user_id;
+    }
+    match /friends/{friendId} {
+      allow get, list, delete: if signedIn() &&
+        (resource.data.user_id_1 == request.auth.uid || resource.data.user_id_2 == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.status == 1
+        && (request.resource.data.user_id_1 == request.auth.uid || request.resource.data.user_id_2 == request.auth.uid);
+      allow update: if false;
+    }
+    match /guilds/{guildId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.leader_id == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.leader_id == request.auth.uid;
+    }
+    match /guild_members/{membershipId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update: if signedIn() && resource.data.user_id == request.auth.uid
+        && request.resource.data.user_id == resource.data.user_id
+        && request.resource.data.guild_id == resource.data.guild_id;
+      allow delete: if signedIn() &&
+        (resource.data.user_id == request.auth.uid || guildLeader(resource.data.guild_id));
+    }
+    match /gifts/{giftId} {
+      allow get, list: if signedIn() &&
+        (resource.data.sender == request.auth.uid || resource.data.receiver == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.sender == request.auth.uid
+        && request.resource.data.receiver != request.auth.uid
+        && request.resource.data.claimed == false;
+      allow update: if signedIn() && resource.data.receiver == request.auth.uid
+        && resource.data.claimed == false
+        && request.resource.data.claimed == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed']);
+      allow delete: if false;
+    }
+    match /messages/{messageId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 100
+        && request.resource.data.channel == 'world';
+      allow update, delete: if false;
+    }
+    match /sys_config/{configId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && configId == 'raid_boss'
+        && request.resource.data.current_hp == 500000
+        && request.resource.data.max_hp == 500000
+        && request.resource.data.is_active == true;
+      allow update: if signedIn() && configId == 'raid_boss'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['current_hp', 'is_active'])
+        && request.resource.data.current_hp is number
+        && request.resource.data.current_hp >= 0
+        && request.resource.data.current_hp <= resource.data.current_hp
+        && request.resource.data.is_active == (request.resource.data.current_hp > 0);
+      allow delete: if false;
+    }
     match /{document=**} {
-      allow read, write: if true; // Allow all for local emulator
+      allow read, write: if false;
     }
   }
 }
