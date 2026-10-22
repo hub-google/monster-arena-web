@@ -6,21 +6,38 @@ import {
 } from 'firebase/auth';
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc,
-  query, where, deleteDoc, runTransaction, orderBy, limit
+  query, where, deleteDoc, runTransaction, orderBy, limit, onSnapshot
 } from 'firebase/firestore';
 
 const getUserId = () => {
   const user = auth.currentUser;
-  if (!user) throw new Error('Not authenticated');
+  if (!user) throw new Error('User not authenticated');
   return user.uid;
 };
 
 const usernameToEmail = (username) => `${username.toLowerCase().replace(/[^a-z0-9]/g, '')}@monsterarena.app`;
 
+// All client-side mutations must at least check the signed-in owner.
+const ownMonster = async (monsterId) => {
+  const ref = doc(db, 'monsters', monsterId);
+  const snap = await getDoc(ref);
+  if (!snap.exists() || snap.data().user_id !== getUserId()) {
+    throw new Error('找不到您擁有的怪獸！');
+  }
+  return { ref, monster: snap.data() };
+};
+
+const ownedInventoryItem = async (uid, itemId) => {
+  const found = await getDocs(query(collection(db, 'user_inventory'),
+    where('user_id', '==', uid), where('item_id', '==', itemId)));
+  return found.empty ? doc(db, 'user_inventory', `${uid}_${itemId}`) : found.docs[0].ref;
+};
+
 export const api = {
   // --- Auth ---
   register: async (username, email, password) => {
     const finalEmail = email || usernameToEmail(username);
+    if (!/^[a-zA-Z0-9_]{3,24}$/.test(username.trim())) throw new Error('帳號需為 3–24 位英數字或底線');
     const userCredential = await createUserWithEmailAndPassword(auth, finalEmail, password);
     const uid = userCredential.user.uid;
 
@@ -85,15 +102,18 @@ export const api = {
         continue;
       }
 
-      const lastUpdated = new Date(m.last_updated_at);
-      const hoursPassed = (now - lastUpdated) / (1000 * 60 * 60);
+      const lastUpdated = new Date(m.last_updated_at || now);
+      const hoursPassed = Number.isFinite(lastUpdated.getTime())
+        ? Math.max(0, (now - lastUpdated) / (1000 * 60 * 60)) : 0;
 
-      if (hoursPassed > 0.005) { // update periodically (~18 seconds)
-        m.age_days += hoursPassed / 24;
+      // Time-based fractional decay works even when the user refreshes frequently.
+      if (hoursPassed >= (m.life_stage === 1 ? 1 / 120 : 1 / 12)) {
+        const previousAge = Number(m.age_days) || 0;
+        m.age_days = previousAge + hoursPassed / 24;
 
         // Hunger & Cleanliness deduction
-        m.fullness = Math.max(0, m.fullness - Math.floor(hoursPassed * (m.life_stage >= 3 ? 4 : 2)));
-        m.cleanliness = Math.max(0, m.cleanliness - Math.floor(hoursPassed * 4));
+        m.fullness = Math.max(0, m.fullness - hoursPassed * (m.life_stage >= 3 ? 4 : 2));
+        m.cleanliness = Math.max(0, m.cleanliness - hoursPassed * 4);
 
         // 1. Starving 24h logic
         if (m.fullness === 0) {
@@ -159,8 +179,9 @@ export const api = {
 
           // 4. Aging Decline (30 days peak)
           if (m.life_stage === 5 && m.age_days > 30) {
-            const decayDays = Math.floor(m.age_days - 30);
-            const decayFactor = Math.pow(0.99, decayDays);
+            const elapsedDecayDays = Math.max(0, Math.floor(m.age_days - 30))
+              - Math.max(0, Math.floor(previousAge - 30));
+            const decayFactor = Math.pow(0.99, elapsedDecayDays);
             m.combat_atk = Math.max(m.gene_atk, m.combat_atk * decayFactor);
             m.combat_def = Math.max(m.gene_def, m.combat_def * decayFactor);
             m.combat_spd = Math.max(m.gene_spd, m.combat_spd * decayFactor);
@@ -258,10 +279,8 @@ export const api = {
 
   feed: async (monster_id, item_id) => {
     const uid = getUserId();
-    const monRef = doc(db, 'monsters', monster_id);
-    const monSnap = await getDoc(monRef);
-    if (!monSnap.exists() || monSnap.data().is_dead) throw new Error('怪獸狀態異常！');
-    const mon = monSnap.data();
+    const { ref: monRef, monster: mon } = await ownMonster(monster_id);
+    if (mon.is_dead) throw new Error('怪獸狀態異常！');
 
     let newFullness = mon.fullness;
     let newCleanliness = mon.cleanliness;
@@ -288,17 +307,17 @@ export const api = {
   },
 
   clean: async (monster_id) => {
-    await updateDoc(doc(db, 'monsters', monster_id), { cleanliness: 100 });
+    const { ref, monster } = await ownMonster(monster_id);
+    if (monster.is_dead) throw new Error('無法清理已死亡的怪獸！');
+    await updateDoc(ref, { cleanliness: 100 });
     api.trackQuestProgress('clean', 1).catch(e => console.warn(e));
     return { message: '打掃完畢，環境變乾淨了！' };
   },
 
   heal: async (monster_id, item_id = 'medicine_standard') => {
     const uid = getUserId();
-    const monRef = doc(db, 'monsters', monster_id);
-    const monSnap = await getDoc(monRef);
-    if (!monSnap.exists() || monSnap.data().is_dead) throw new Error('怪獸狀態異常！');
-    const mon = monSnap.data();
+    const { ref: monRef, monster: mon } = await ownMonster(monster_id);
+    if (mon.is_dead) throw new Error('怪獸狀態異常！');
 
     let newHp = mon.combat_hp;
 
@@ -319,7 +338,8 @@ export const api = {
   rename: async (monster_id, new_name) => {
     if (!new_name || new_name.trim().length === 0) throw new Error('名字不能為空！');
     if (new_name.length > 20) throw new Error('名字太長了！');
-    await updateDoc(doc(db, 'monsters', monster_id), { custom_name: new_name.trim() });
+    const { ref } = await ownMonster(monster_id);
+    await updateDoc(ref, { custom_name: new_name.trim() });
     return { message: `怪獸已改名為 ${new_name.trim()}！` };
   },
 
@@ -331,11 +351,11 @@ export const api = {
     let message = '';
     await runTransaction(db, async (t) => {
       const userDoc = await t.get(userRef);
-      if (userDoc.data().stamina < 10) throw new Error('體力不足！訓練需要 10 點體力。');
+      if (!userDoc.exists() || userDoc.data().stamina < 10) throw new Error('體力不足！訓練需要 10 點體力。');
 
       const monDoc = await t.get(monRef);
       const mon = monDoc.data();
-      if (!mon || mon.is_dead || mon.is_sick || mon.fullness < 20) throw new Error('怪獸生病或太餓無法訓練！');
+      if (!mon || mon.user_id !== uid || mon.is_dead || mon.is_sick || mon.fullness < 20) throw new Error('怪獸生病或太餓無法訓練！');
 
       t.update(userRef, { stamina: userDoc.data().stamina - 10 });
 
@@ -374,19 +394,9 @@ export const api = {
     return { message: '🧬 消耗究極進化核心，究極進化成功！戰鬥數值大幅提升！' };
   },
 
-  toggleLock: async (monster_id) => {
-    const monRef = doc(db, 'monsters', monster_id);
-    const monSnap = await getDoc(monRef);
-    const newLock = !monSnap.data().is_locked;
-    await updateDoc(monRef, { is_locked: newLock });
-    return { message: newLock ? '已上鎖，免受放生！' : '已解除鎖定！' };
-  },
-
   release: async (monster_id) => {
     const uid = getUserId();
-    const monRef = doc(db, 'monsters', monster_id);
-    const monSnap = await getDoc(monRef);
-    const monData = monSnap.data();
+    const { ref: monRef, monster: monData } = await ownMonster(monster_id);
     if (monData.is_locked) throw new Error('怪獸已鎖定，無法放生！');
 
     // Release reward: base 50G + generation * 10 + life_stage * 20
@@ -395,6 +405,10 @@ export const api = {
 
     await runTransaction(db, async (t) => {
       const uDoc = await t.get(userRef);
+      const currentMonster = await t.get(monRef);
+      if (!uDoc.exists() || !currentMonster.exists() || currentMonster.data().user_id !== uid || currentMonster.data().is_locked) {
+        throw new Error('怪獸已鎖定或不屬於您！');
+      }
       t.update(userRef, { gold: (uDoc.data().gold || 0) + rewardGold });
       t.delete(monRef);
     });
@@ -784,28 +798,25 @@ export const api = {
 
   // --- Social & Chat ---
   searchPlayers: async (typeFilter) => {
-    // Queries up to 20 recent active monsters. If typeFilter is provided, filter by type.
-    let q = query(collection(db, 'monsters'), where('is_dead', '==', false), orderBy('created_at', 'desc'), limit(20));
-    if (typeFilter) {
-      q = query(collection(db, 'monsters'), where('is_dead', '==', false), where('type', '==', parseInt(typeFilter)), orderBy('created_at', 'desc'), limit(20));
-    }
-
-    const snap = await getDocs(q);
+    // Older monsters have no created_at field, so ordering by it silently excludes them.
+    const snap = await getDocs(query(collection(db, 'monsters'), where('is_dead', '==', false), limit(100)));
+    const selectedType = typeFilter ? Number(typeFilter) : null;
     let players = [];
 
     // Group by owner_id and fetch their usernames
     const ownersMap = new Map();
     snap.forEach(doc => {
       const m = { monster_id: doc.id, ...doc.data() };
-      if (!ownersMap.has(m.owner_id)) {
-        ownersMap.set(m.owner_id, {
-          user_id: m.owner_id,
-          username: `玩家 ${m.owner_id.substring(0, 5)}`, // Fallback
+      if ((selectedType && m.type !== selectedType) || !m.user_id) return;
+      if (!ownersMap.has(m.user_id)) {
+        ownersMap.set(m.user_id, {
+          user_id: m.user_id,
+          username: `玩家 ${m.user_id.substring(0, 5)}`, // Fallback
           monsters: []
         });
       }
-      if (ownersMap.get(m.owner_id).monsters.length < 3) {
-        ownersMap.get(m.owner_id).monsters.push(m);
+      if (ownersMap.get(m.user_id).monsters.length < 3) {
+        ownersMap.get(m.user_id).monsters.push(m);
       }
     });
 
@@ -821,6 +832,7 @@ export const api = {
 
   sendMessage: async (channel, text) => {
     if (!text || text.trim().length === 0) return;
+    if (text.trim().length > 100) throw new Error('訊息最多 100 字！');
     const uid = getUserId();
 
     // Spam check
@@ -860,10 +872,8 @@ export const api = {
 
   // --- Monster Lock ---
   toggleLock: async (monster_id) => {
-    const monRef = doc(db, 'monsters', monster_id);
-    const monSnap = await getDoc(monRef);
-    if (!monSnap.exists()) throw new Error('找不到怪獸！');
-    const current = monSnap.data().is_locked || false;
+    const { ref: monRef, monster } = await ownMonster(monster_id);
+    const current = monster.is_locked || false;
     await updateDoc(monRef, { is_locked: !current });
     return { message: current ? '已解除鎖定' : '怪獸已鎖定保護！' };
   },
