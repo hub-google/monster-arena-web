@@ -50,6 +50,7 @@ export const api = {
       max_stamina: 100
     });
 
+    await setDoc(doc(db, 'public_profiles', uid), { username: username.trim() });
     return { user: userCredential.user };
   },
 
@@ -64,6 +65,9 @@ export const api = {
     const docSnap = await getDoc(doc(db, 'users', uid));
     if (!docSnap.exists()) throw new Error('User not found');
     const data = docSnap.data();
+    // Publish only the username, never email or in-game financial details.
+    const publicRef = doc(db, 'public_profiles', uid);
+    if (!(await getDoc(publicRef)).exists()) await setDoc(publicRef, { username: data.username });
 
     // Daily Login Bonus (100G)
     const now = new Date();
@@ -79,6 +83,21 @@ export const api = {
       data.gold = newGold;
     }
 
+    // Stamina gifts are claimed by the receiver, never by a sender writing to their wallet.
+    const gifts = await getDocs(query(collection(db, 'gifts'), where('receiver', '==', uid), limit(100)));
+    for (const gift of gifts.docs) {
+      if (gift.data().claimed) continue;
+      await runTransaction(db, async t => {
+        const userRef = doc(db, 'users', uid);
+        const u = await t.get(userRef);
+        const g = await t.get(gift.ref);
+        if (!u.exists() || !g.exists() || g.data().receiver !== uid || g.data().claimed) return;
+        const stamina = Math.min(u.data().max_stamina || 100, (u.data().stamina || 0) + 20);
+        t.update(userRef, { stamina });
+        t.update(gift.ref, { claimed: true });
+        data.stamina = stamina;
+      });
+    }
     return data;
   },
 
@@ -774,7 +793,7 @@ export const api = {
     });
 
     for (let [ownerId, data] of ownersMap) {
-      const uSnap = await getDoc(doc(db, 'users', ownerId));
+      const uSnap = await getDoc(doc(db, 'public_profiles', ownerId));
       if (uSnap.exists()) {
         data.username = uSnap.data().username || data.username;
       }
@@ -837,7 +856,7 @@ export const api = {
     if (uid === targetUUID) throw new Error('不能加自己為好友！');
 
     // Check target user exists
-    const targetSnap = await getDoc(doc(db, 'users', targetUUID));
+    const targetSnap = await getDoc(doc(db, 'public_profiles', targetUUID));
     if (!targetSnap.exists()) throw new Error('找不到該 UUID 的玩家！');
 
     // Prevent duplicate
@@ -866,7 +885,7 @@ export const api = {
     for (const d of [...snap1.docs, ...snap2.docs]) {
       const data = d.data();
       const friendId = data.user_id_1 === uid ? data.user_id_2 : data.user_id_1;
-      const uSnap = await getDoc(doc(db, 'users', friendId));
+      const uSnap = await getDoc(doc(db, 'public_profiles', friendId));
       if (uSnap.exists()) {
         friends.push({ friend_id: friendId, friend_name: uSnap.data().username || '未知玩家' });
       }
@@ -876,20 +895,18 @@ export const api = {
 
   giftStamina: async (friendId) => {
     const uid = getUserId();
-    const today = new Date().toISOString().split('T')[0];
-    const giftKey = `gift_${uid}_${friendId}_${today}`;
-    const giftRef = doc(db, 'gifts', giftKey);
-    const giftSnap = await getDoc(giftRef);
-    if (giftSnap.exists()) throw new Error('今天已經贈送過體力了！');
-
-    const friendRef = doc(db, 'users', friendId);
-    await runTransaction(db, async (t) => {
-      const fDoc = await t.get(friendRef);
-      if (!fDoc.exists()) throw new Error('好友不存在！');
-      t.update(friendRef, { stamina: Math.min(200, (fDoc.data().stamina || 0) + 20) });
-      t.set(giftRef, { sender: uid, receiver: friendId, date: today });
+    if (!friendId || uid === friendId) throw new Error('請選擇有效好友！');
+    const friendshipRef = doc(db, 'friends', [uid, friendId].sort().join('_'));
+    const giftRef = doc(db, 'gifts', `gift_${uid}_${friendId}_${new Date().toISOString().slice(0, 10)}`);
+    await runTransaction(db, async t => {
+      const friends = await t.get(friendshipRef);
+      const existingGift = await t.get(giftRef);
+      if (!friends.exists() || friends.data().status !== 1) throw new Error('只有好友才能互贈體力！');
+      if (existingGift.exists()) throw new Error('今天已經贈送過體力了！');
+      t.set(giftRef, { sender: uid, receiver: friendId,
+        date: new Date().toISOString().slice(0, 10), claimed: false });
     });
-    return { message: '已成功贈送 20 點體力給好友！' };
+    return { message: '體力禮物已送出，好友登入後會自動領取！' };
   },
 };
 
