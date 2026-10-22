@@ -38,7 +38,7 @@ begin
     on conflict(user_id) do nothing;
   select * into v_profile from public.users where user_id=v_uid;
   return v_profile;
-end $$;
+end; $;
 revoke all on function public.game_ensure_profile() from public,anon;
 grant execute on function public.game_ensure_profile() to authenticated;
 
@@ -365,7 +365,7 @@ begin
     end if;
   end if;
   return jsonb_build_object('message','操作成功！');
-end $$;
+end; $;
 revoke all on function public.game_action(text,jsonb) from public,anon;
 grant execute on function public.game_action(text,jsonb) to authenticated;
 
