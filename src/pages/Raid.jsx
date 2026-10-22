@@ -130,7 +130,7 @@ export default function Raid({
                 <label className="text-xs text-slate-400 mb-1 block">選擇出戰怪獸</label>
                 <select 
                   value={selectedMonsterId}
-                  onChange={(e) => setSelectedMonsterId(parseInt(e.target.value))}
+                  onChange={(e) => setSelectedMonsterId(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-rose-500 transition-colors"
                 >
                   {monsters.filter(m => !m.is_dead).map(m => (
