@@ -29,6 +29,7 @@ export default function App() {
   const [activeMonster, setActiveMonster] = useState(null);
   const [page, setPage] = useState('dashboard');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   // WebSocket / Realtime mocked for Firebase tests
   const isConnected = Boolean(auth.currentUser && (typeof navigator === 'undefined' || navigator.onLine));
@@ -51,6 +52,7 @@ export default function App() {
   }, []);
 
   const loadUserData = async () => {
+    setLoadError('');
     try {
       const userProfile = await api.getMe();
       setUser(userProfile);
@@ -68,6 +70,8 @@ export default function App() {
           }
           return prev;
         });
+      } else {
+        setActiveMonster(null);
       }
 
       const invList = await api.getInventory();
@@ -82,6 +86,7 @@ export default function App() {
 
     } catch (err) {
       console.error(err);
+      setLoadError(err.message || '資料載入失敗');
       if (err.message === 'User not authenticated') {
         handleLogout();
       }
@@ -101,7 +106,7 @@ export default function App() {
           if (!prev && alive) return alive;
           if (prev) {
              const updated = monList.find(m => m.monster_id === prev.monster_id);
-             return updated || prev;
+             return updated || alive || null;
           }
           return prev;
         });
@@ -133,6 +138,7 @@ export default function App() {
   const handleLogout = async () => {
     if (auth.currentUser) await signOut(auth);
     setUser(null);
+    setLoadError('');
     setMonsters([]);
     setInventory([]);
     setFriends([]);
@@ -148,6 +154,17 @@ export default function App() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-purple-400 font-sans">
         <span className="text-4xl animate-bounce">👾</span>
         <span className="mt-4 font-semibold tracking-wide">載入遊戲數據中...</span>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-950 text-white p-6 text-center">
+        <h2 className="text-xl font-bold">遊戲資料讀取失敗</h2>
+        <p className="text-rose-400 max-w-md break-words">{loadError}</p>
+        <button onClick={loadUserData} className="neon-button neon-button-primary px-6 py-3">重試載入</button>
+        <button onClick={handleLogout} className="text-sm text-slate-400 underline">登出重新登入</button>
       </div>
     );
   }
