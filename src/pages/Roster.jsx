@@ -283,7 +283,7 @@ export default function Roster({
                 <label className="text-xs text-fuchsia-300 font-bold mb-2 block">父親親代 (P1)</label>
                 <select value={parent1} onChange={(e) => setParent1(e.target.value)} className="w-full bg-slate-950 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-fuchsia-500">
                   <option value="">--請選擇怪獸--</option>
-                  {monsters.filter(m => m.life_stage >= 3 && !m.is_dead).map(m => (
+                  {monsters.filter(m => m.life_stage >= 4 && !m.is_dead).map(m => (
                     <option key={m.monster_id} value={m.monster_id}>{m.name} (G{m.generation})</option>
                   ))}
                 </select>
@@ -293,7 +293,7 @@ export default function Roster({
                 <label className="text-xs text-fuchsia-300 font-bold mb-2 block">母親親代 (P2)</label>
                 <select value={parent2} onChange={(e) => setParent2(e.target.value)} className="w-full bg-slate-950 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-fuchsia-500">
                   <option value="">--請選擇怪獸--</option>
-                  {monsters.filter(m => m.life_stage >= 3 && !m.is_dead).map(m => (
+                  {monsters.filter(m => m.life_stage >= 4 && !m.is_dead).map(m => (
                     <option key={m.monster_id} value={m.monster_id}>{m.name} (G{m.generation})</option>
                   ))}
                 </select>
@@ -311,7 +311,7 @@ export default function Roster({
 
               <button
                 onClick={handleBreed}
-                disabled={loading || !parent1 || !parent2 || user.gold < 200}
+                disabled={loading || !parent1 || !parent2 || parent1 === parent2 || (useCatalyst && getItemQty('breed_catalyst') < 1) || user.gold < 200}
                 className="w-full py-4 font-bold rounded-xl text-white mt-4 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 shadow-lg shadow-fuchsia-500/30 transform active:scale-95 transition-all disabled:opacity-50 disabled:transform-none"
               >
                 融合繁衍一代 (-200G)
