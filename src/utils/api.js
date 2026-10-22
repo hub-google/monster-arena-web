@@ -84,6 +84,13 @@ export const api = {
   getMe: async () => {
     const { data, error } = await supabase.rpc('game_ensure_profile');
     throwIfError(error);
+    const giftResult = await supabase.rpc('game_claim_gifts');
+    throwIfError(giftResult.error);
+    if (giftResult.data > 0) {
+      const refresh = await supabase.from('users').select('*').eq('user_id',data.user_id).single();
+      throwIfError(refresh.error);
+      return refresh.data;
+    }
     return data;
   },
   getMonsters: async () => {
@@ -195,22 +202,40 @@ export const api = {
     throwIfError(error);
     return (data??[]).map(f=>({...f,friend_id:f.friend_uid,friend_name:f.friend_name||'好友'}));
   },
-  addFriend: async target => {
-    const uid = await getUid();
-    const name = target.trim();
-    if (!name) throw new Error('請輸入好友 UUID 或使用者名稱');
-    let lookup = supabase.from('users').select('user_id,username');
-    lookup = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(name) ?
-      lookup.eq('user_id',name) : lookup.eq('username',name);
-    const {data:peer,error} = await lookup.maybeSingle();
+  getFriendRequests: async () => {
+    const uid=await getUid();
+    const {data,error}=await supabase.from('friends').select('friend_record_id,user_id,friend_uid,status')
+      .eq('friend_uid',uid).eq('status',0);
     throwIfError(error);
-    if(!peer) throw new Error('找不到該玩家');
-    if(peer.user_id===uid) throw new Error('不能加自己');
-    const {error:insertError} = await supabase.from('friends')
-      .upsert({user_id:uid,friend_uid:peer.user_id,friend_name:peer.username,status:1},
-        {onConflict:'user_id,friend_uid',ignoreDuplicates:true});
-    throwIfError(insertError);
-    return { message: '已加入好友' };
+    const incoming=data??[];
+    if(!incoming.length)return [];
+    const {data:people,error:peopleError}=await supabase.from('users').select('user_id,username')
+      .in('user_id',incoming.map(x=>x.user_id));
+    throwIfError(peopleError);
+    const names=Object.fromEntries((people??[]).map(p=>[p.user_id,p.username]));
+    return incoming.map(f=>({...f,friend_name:names[f.user_id]||'玩家'}));
+  },
+  addFriend: async target => {
+    const uid=await getUid();
+    const name=target.trim();
+    if(!name)throw new Error('請輸入好友 UUID 或使用者名稱');
+    let lookup=supabase.from('users').select('user_id,username');
+    lookup=/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(name)?
+      lookup.eq('user_id',name):lookup.eq('username',name);
+    const {data:peer,error}=await lookup.maybeSingle();
+    throwIfError(error);
+    if(!peer)throw new Error('找不到該玩家');
+    if(peer.user_id===uid)throw new Error('不能加自己');
+    const {data,result,error:requestError}=await supabase.rpc('game_friend_action',{
+      p_mode:'request',p_peer:peer.user_id
+    });
+    throwIfError(requestError);
+    return data??result??{message:'好友邀請已送出'};
+  },
+  acceptFriend: async friend_id => {
+    const {data,error}=await supabase.rpc('game_friend_action',{p_mode:'accept',p_peer:friend_id});
+    throwIfError(error);
+    return data??{message:'已接受好友邀請'};
   },
   giftStamina: friend_id => action('gift', { friend_id }),
   sendMessage: (channel,text) => {
