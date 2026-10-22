@@ -17,11 +17,22 @@ npm run lint
 npm run build
 ```
 
-Local development now uses the production Firebase configuration by default. **Use the Firebase emulators when developing or testing changes that write game data.** Create a local `.env.local` containing `VITE_USE_FIREBASE_EMULATORS=true` and run `npx firebase emulators:start` alongside Vite. Never run the historical destructive E2E test suites against production.
+Production builds require `VITE_FIREBASE_API_KEY` — do not use any test or guessed API key. Retrieve the key from the **same** Firebase project that contains existing player accounts (`monster-arena-web-app`) under Firebase Console → Project settings → General → Your apps → Web app → SDK setup/config. The Web API key is a public Firebase app identifier, not a service-account secret.
+
+### Fixing `auth/api-key-not-valid` on GitHub Pages
+
+1. Open [Firebase Console](https://console.firebase.google.com/project/monster-arena-web-app/settings/general), choose the existing web app and copy the `apiKey` shown in its `firebaseConfig`. If there is no web app, register one **in that same project** (do not create a second project).
+2. Open [repository Actions secrets](https://github.com/hub-google/monster-arena-web/settings/secrets/actions) and create a repository secret called **`VITE_FIREBASE_API_KEY`** with that value (no quotes). A repository Actions variable of the same name also works; secret takes priority.
+3. Run [Build, check and deploy GitHub Pages](https://github.com/hub-google/monster-arena-web/actions/workflows/deploy.yml) using **Run workflow** on `master`. A successful run validates the Firebase Authentication endpoint with a read-only request, builds, runs Chromium smoke tests and publishes.
+4. Make sure **Authentication → Sign-in method → Email/Password** is enabled for this Firebase project. If the validation fails due to API restrictions, allow the Identity Toolkit API and `https://hub-google.github.io` (or the project's intended referrer configuration) in Google Cloud API key settings.
+
+The deployment **intentionally stops** if the Web API key is missing or rejected, to avoid releasing a broken login screen again. No real account or password is needed for the preflight.
+
+Local development now uses the production Firebase configuration by default. Set `VITE_FIREBASE_API_KEY=...` in `.env.local` for non-emulator development. **Use the Firebase emulators when developing or testing changes that write game data.** Create a local `.env.local` containing `VITE_USE_FIREBASE_EMULATORS=true` and run `npx firebase emulators:start` alongside Vite. Never run the historical destructive E2E test suites against production.
 
 ## Deployment
 
-Commits to `master` automatically run lint, build and a real Chromium browser smoke test, then publish the built `dist/` folder to the `gh-pages` branch. GitHub Pages continues to serve that branch under `/monster-arena-web/`. The smoke test checks that the login and registration UI renders without JavaScript exceptions; it does **not** validate every authenticated game flow.
+Commits to `master` automatically run lint, build and a real Chromium browser smoke test, then publish the built `dist/` folder to the `gh-pages` branch. GitHub Pages continues to serve that branch under `/monster-arena-web/`. The build also verifies the Firebase Authentication API key with a non-destructive request. The Chromium smoke test checks that the login and registration UI renders without JavaScript exceptions; it does **not** validate actual user sign-in or every authenticated game flow.
 
 ## Important: Firebase rules must be published separately
 
