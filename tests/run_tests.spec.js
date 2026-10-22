@@ -6,6 +6,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPORT_DIR = path.join(__dirname, '../../測試報告');
 
+test.skip(!process.env.FIRESTORE_EMULATOR_HOST || !process.env.RUN_DESTRUCTIVE_E2E,
+  'Registration and game mutations must run only against a Firebase emulator.');
 test.describe('Monster Arena E2E QA Test', () => {
   test('Complete User Journey', async ({ page }) => {
     // Navigate to local dev server
