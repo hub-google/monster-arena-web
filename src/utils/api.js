@@ -71,17 +71,21 @@ export const api = {
 
     // Daily Login Bonus (100G)
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const lastLoginStr = data.last_login_at ? data.last_login_at.split('T')[0] : '';
-
-    if (todayStr !== lastLoginStr) {
-      const newGold = (data.gold || 0) + 100;
-      await updateDoc(doc(db, 'users', uid), {
-        gold: newGold,
-        last_login_at: now.toISOString()
-      });
-      data.gold = newGold;
-    }
+    const todayStr = now.toISOString().slice(0, 10);
+    // Transaction reads the latest login date to prevent concurrent duplicate bonuses.
+    const latest = await runTransaction(db, async t => {
+      const userRef = doc(db, 'users', uid);
+      const current = await t.get(userRef);
+      if (!current.exists()) throw new Error('User not found');
+      const updated = current.data();
+      if (String(updated.last_login_at || '').slice(0, 10) !== todayStr) {
+        updated.gold = (updated.gold || 0) + 100;
+        updated.last_login_at = now.toISOString();
+        t.update(userRef, { gold: updated.gold, last_login_at: updated.last_login_at });
+      }
+      return updated;
+    });
+    Object.assign(data, latest);
 
     // Stamina gifts are claimed by the receiver, never by a sender writing to their wallet.
     const gifts = await getDocs(query(collection(db, 'gifts'), where('receiver', '==', uid), limit(100)));
