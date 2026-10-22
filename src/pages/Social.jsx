@@ -149,7 +149,7 @@ export default function Social({ user }) {
                     {p.monsters.map((m, idx) => (
                       <div key={idx} className="flex flex-col items-center gap-1">
                         <div className="w-16 h-16 bg-slate-800 rounded flex items-center justify-center overflow-hidden border border-slate-700">
-                          <MonsterPixelArt monster={m} size={2} />
+                          <MonsterPixelArt family={m.family} stage={m.life_stage} type={m.type} size={2} />
                         </div>
                         <span className="text-[10px] text-slate-300 text-center max-w-[60px] truncate">
                           {m.custom_name || m.name}
@@ -228,7 +228,7 @@ export default function Social({ user }) {
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[300px]">
             {chatLogs.map(log => {
-              const isMe = log.user_id === user?.uid;
+              const isMe = log.user_id === user?.user_id;
               return (
                 <div key={log.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                   <span className="text-[10px] text-slate-500 mb-0.5 mx-1">
