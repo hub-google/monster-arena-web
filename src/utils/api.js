@@ -2,7 +2,6 @@ import { auth, db } from './firebaseClient';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signOut
 } from 'firebase/auth';
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc,
@@ -600,53 +599,6 @@ export const api = {
     });
     return { message: `領取成功！獲得 ${quest.reward}G` };
   },
-
-  getFriends: async () => {
-    const uid = getUserId();
-    const q = query(collection(db, 'friends'), where('user_id', '==', uid));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ friend_id: d.id, ...d.data() }));
-  },
-  addFriend: async (friend_uuid) => {
-    const uid = getUserId();
-    if (!friend_uuid || friend_uuid.trim() === '') throw new Error('UUID 不能為空！');
-    if (uid === friend_uuid) throw new Error('不能加自己為好友！');
-
-    // Check if friend exists
-    const friendSnap = await getDoc(doc(db, 'users', friend_uuid));
-    if (!friendSnap.exists()) throw new Error('找不到此 UUID 的玩家！');
-
-    const friendData = friendSnap.data();
-
-    // Check if already friends
-    const myFriendRef = doc(db, 'friends', `${uid}_${friend_uuid}`);
-    const checkSnap = await getDoc(myFriendRef);
-    if (checkSnap.exists()) throw new Error('你們已經是好友了！');
-
-    const mySnap = await getDoc(doc(db, 'users', uid));
-    const myData = mySnap.data();
-
-    // Add to my friends
-    await setDoc(myFriendRef, {
-      user_id: uid,
-      friend_uid: friend_uuid,
-      friend_name: friendData.username,
-      created_at: new Date().toISOString()
-    });
-
-    // Add to their friends
-    const theirFriendRef = doc(db, 'friends', `${friend_uuid}_${uid}`);
-    await setDoc(theirFriendRef, {
-      user_id: friend_uuid,
-      friend_uid: uid,
-      friend_name: myData.username,
-      created_at: new Date().toISOString()
-    });
-
-    return { message: `成功加入 ${friendData.username} 為好友！` };
-  },
-  acceptFriend: async () => { return { message: 'ok' }; },
-  giftStamina: async () => { return { message: 'ok' }; },
 
   // Real Guild Implementation
   getGuilds: async () => {
