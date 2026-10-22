@@ -226,7 +226,7 @@ export default function Dashboard({
           <div>
             <div className="flex justify-between text-xs mb-1 font-medium text-slate-300">
               <span>飽食度</span>
-              <span>{monster.fullness}%</span>
+              <span>{Math.round(monster.fullness)}%</span>
             </div>
             <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
               <div 
@@ -239,7 +239,7 @@ export default function Dashboard({
           <div>
             <div className="flex justify-between text-xs mb-1 font-medium text-slate-300">
               <span>環境清潔</span>
-              <span>{monster.cleanliness}%</span>
+              <span>{Math.round(monster.cleanliness)}%</span>
             </div>
             <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
               <div 
