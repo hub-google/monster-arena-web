@@ -101,7 +101,7 @@ export default function App() {
     <button onClick={handleLogout} className="text-sm text-slate-400 underline">登出重新登入</button>
   </div>;
 
-  if(!user)return <Login onLoginSuccess={()=>{setLoading(true);loadUserData();}} />;
+  if(!user)return <Login onLoginSuccess={()=>{ /* session loads through onAuthStateChange */ }} />;
 
   const activePlayers=[];
   return <div className="min-h-screen flex flex-col items-center justify-center bg-white p-4">
