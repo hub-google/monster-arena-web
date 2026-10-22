@@ -31,7 +31,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   // WebSocket / Realtime mocked for Firebase tests
-  const isConnected = true;
+  const isConnected = Boolean(auth.currentUser && (typeof navigator === 'undefined' || navigator.onLine));
   const worldChannel = null;
   const activePlayers = [];
   const [receivedChallenge, setReceivedChallenge] = useState(null);
@@ -64,7 +64,7 @@ export default function App() {
           if (!prev && alive) return alive;
           if (prev) {
              const updated = monList.find(m => m.monster_id === prev.monster_id);
-             return updated || prev;
+             return updated || alive || null;
           }
           return prev;
         });
@@ -105,6 +105,8 @@ export default function App() {
           }
           return prev;
         });
+      } else {
+        setActiveMonster(null);
       }
     } catch (err) {
       console.error("Error polling monster data:", err);
@@ -116,8 +118,8 @@ export default function App() {
     let intervalId;
     if (user) {
       intervalId = setInterval(() => {
-        loadMonsterData();
-      }, 10000); // Poll every 10 seconds
+        if (document.visibilityState === 'visible') loadMonsterData();
+      }, 300000); // Refresh every five minutes while visible
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
@@ -160,6 +162,7 @@ export default function App() {
         {page === 'dashboard' && <Dashboard user={user} monsters={monsters} inventory={inventory} refreshData={loadUserData} activeMonster={activeMonster} setActiveMonster={setActiveMonster} setPage={setPage} />}
         {page === 'roster' && <Roster user={user} monsters={monsters} inventory={inventory} refreshData={loadUserData} activeMonster={activeMonster} setActiveMonster={setActiveMonster} setPage={setPage} />}
         {page === 'arena' && <Arena user={user} monsters={monsters} friends={friends} activeMonster={activeMonster} channel={worldChannel} activePlayers={activePlayers} receivedChallenge={receivedChallenge} setReceivedChallenge={setReceivedChallenge} battleState={battleState} setBattleState={setBattleState} refreshData={loadUserData} setPage={setPage} />}
+        {page === 'raid' && <Raid user={user} monsters={monsters} activeMonster={activeMonster} refreshData={loadUserData} setPage={setPage} />}
         {page === 'guild' && <Guild user={user} guilds={guilds} myGuild={myGuild} refreshData={loadUserData} setPage={setPage} />}
         {page === 'social' && <Social user={user} />}
         {page === 'pokedex' && <Pokedex setPage={setPage} />}
