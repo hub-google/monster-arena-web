@@ -23,11 +23,9 @@ export default function Login({ onLoginSuccess }) {
     try {
       if (isRegister) {
         const data = await api.register(username, email, password);
-        sessionStorage.setItem('token', data.token);
         onLoginSuccess(data.user);
       } else {
         const data = await api.login(username, password);
-        sessionStorage.setItem('token', data.token);
         onLoginSuccess(data.user);
       }
     } catch (err) {
