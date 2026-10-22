@@ -15,6 +15,9 @@ concurrency:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    env:
+      # Firebase Web API key is client-visible; the Actions secret keeps setup centralized.
+      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY || vars.VITE_FIREBASE_API_KEY }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -27,6 +30,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Static checks
         run: npm run lint
+      - name: Verify Firebase Authentication API key
+        run: node scripts/check-firebase-auth.mjs
       - name: Build site
         run: npm run build
       - name: Install Chromium for smoke test
