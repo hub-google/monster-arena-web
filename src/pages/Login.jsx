@@ -14,16 +14,23 @@ export default function Login({ onLoginSuccess }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     setLoading(true);
 
     try {
       if (isRegister) {
         const data = await api.register(username, email, password);
-        onLoginSuccess(data.user);
+        if (data.requiresEmailConfirmation) {
+          setIsRegister(false);
+          setNotice('註冊成功，請先至電子郵件完成驗證，再登入遊戲。');
+        } else {
+          onLoginSuccess(data.user);
+        }
       } else {
         const data = await api.login(username, password);
         onLoginSuccess(data.user);
@@ -126,6 +133,7 @@ export default function Login({ onLoginSuccess }) {
             />
           </div>
 
+          {notice && <p role="status" className="text-emerald-300 text-xs text-center">{notice}</p>}
           {error && (
             <div className="w-full bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-sm text-rose-400 text-center font-bold">
               ⚠️ {error}
