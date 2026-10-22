@@ -34,8 +34,8 @@ export default function Guild({
   };
 
   const handleDonate = async () => {
-    if (!donationAmount) return;
-    await handleAction(api.donateGuild, parseInt(donationAmount));
+    if (!/^[1-9]\d*$/.test(donationAmount)) { setMessage('❌ 請輸入正整數捐獻金額'); return; }
+    await handleAction(api.donateGuild, Number(donationAmount));
     setDonationAmount('');
   };
 
@@ -92,6 +92,8 @@ export default function Guild({
               <div className="flex gap-2">
                 <input
                   type="number"
+                  min="1"
+                  step="1"
                   value={donationAmount}
                   onChange={(e) => setDonationAmount(e.target.value)}
                   placeholder="輸入捐獻金額..."
