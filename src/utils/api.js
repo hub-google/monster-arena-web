@@ -589,97 +589,125 @@ export const api = {
     return { message: `領取成功！獲得 ${quest.reward}G` };
   },
 
-  // Real Guild Implementation
+  // --- Guilds ---
   getGuilds: async () => {
     const uid = getUserId();
-    const guildsSnap = await getDocs(collection(db, 'guilds'));
-    let guilds = [];
-    guildsSnap.forEach(g => guilds.push({ guild_id: g.id, ...g.data() }));
-
-    const memberQ = query(collection(db, 'guild_members'), where('user_id', '==', uid));
-    const memberSnap = await getDocs(memberQ);
-    let myGuild = null;
-    if (!memberSnap.empty) {
-      const memberData = memberSnap.docs[0].data();
-      const gObj = guilds.find(g => g.guild_id === memberData.guild_id);
-      if (gObj) myGuild = { ...gObj, ...memberData };
-    }
-    return { guilds, myGuild };
+    const [guildsSnap, memberSnap] = await Promise.all([
+      getDocs(collection(db, 'guilds')),
+      getDocs(query(collection(db, 'guild_members'), where('user_id', '==', uid)))
+    ]);
+    const guilds = guildsSnap.docs.map(g => ({ guild_id: g.id, ...g.data() }));
+    const membership = memberSnap.docs[0]?.data();
+    const guild = membership && guilds.find(g => g.guild_id === membership.guild_id);
+    return { guilds, myGuild: guild ? { ...guild, ...membership } : null };
   },
-  createGuild: async (guild_name) => {
-    const uid = getUserId();
-    const newGuildRef = doc(collection(db, 'guilds'));
-    await setDoc(newGuildRef, { guild_name, leader_id: uid, level: 1, created_at: new Date().toISOString() });
 
-    const newMemRef = doc(collection(db, 'guild_members'));
-    await setDoc(newMemRef, { guild_id: newGuildRef.id, user_id: uid, role: 2, contribution: 0 });
-    return { message: '創建公會成功！' };
-  },
-  joinGuild: async (guild_id) => {
+  createGuild: async (guildName) => {
     const uid = getUserId();
-    const newMemRef = doc(collection(db, 'guild_members'));
-    await setDoc(newMemRef, { guild_id, user_id: uid, role: 0, contribution: 0 });
+    const name = guildName?.trim();
+    if (!name || name.length < 2 || name.length > 30) throw new Error('公會名稱需 2～30 字！');
+    const existing = await getDocs(query(collection(db, 'guild_members'), where('user_id', '==', uid)));
+    if (!existing.empty) throw new Error('您已加入其他公會！');
+    const guildRef = doc(collection(db, 'guilds'));
+    const memberRef = doc(db, 'guild_members', uid);
+    const userRef = doc(db, 'users', uid);
+    await runTransaction(db, async t => {
+      const u = await t.get(userRef);
+      const member = await t.get(memberRef);
+      if (!u.exists() || (u.data().gold || 0) < 500) throw new Error('創建公會需 500G！');
+      if (member.exists()) throw new Error('您已加入公會！');
+      t.update(userRef, { gold: u.data().gold - 500 });
+      t.set(guildRef, { guild_name: name, leader_id: uid, leader_name: u.data().username,
+        level: 1, created_at: new Date().toISOString() });
+      t.set(memberRef, { guild_id: guildRef.id, user_id: uid, role: 2, contribution: 0 });
+    });
+    return { message: '花費 500G，創建公會成功！' };
+  },
+
+  joinGuild: async (guildId) => {
+    const uid = getUserId();
+    const already = await getDocs(query(collection(db, 'guild_members'), where('user_id', '==', uid)));
+    if (!already.empty) throw new Error('您已加入公會！');
+    const guildRef = doc(db, 'guilds', guildId);
+    const memberRef = doc(db, 'guild_members', uid);
+    await runTransaction(db, async t => {
+      const guild = await t.get(guildRef);
+      const member = await t.get(memberRef);
+      if (!guild.exists()) throw new Error('公會不存在！');
+      if (member.exists()) throw new Error('您已加入公會！');
+      t.set(memberRef, { guild_id: guildId, user_id: uid, role: 0, contribution: 0 });
+    });
     return { message: '成功加入公會！' };
   },
+
   leaveGuild: async () => {
     const uid = getUserId();
-    const memberQ = query(collection(db, 'guild_members'), where('user_id', '==', uid));
-    const memberSnap = await getDocs(memberQ);
-    if (!memberSnap.empty) {
-      await deleteDoc(memberSnap.docs[0].ref);
-    }
-    return { message: '離開公會' };
-  },
-  donateGuild: async (amount) => {
-    const uid = getUserId();
-    const userRef = doc(db, 'users', uid);
-    const memberQ = query(collection(db, 'guild_members'), where('user_id', '==', uid));
-    const memberSnap = await getDocs(memberQ);
-    if (memberSnap.empty) throw new Error('你沒有加入任何公會！');
-    const memberRef = memberSnap.docs[0].ref;
-
-    await runTransaction(db, async (t) => {
-      const uDoc = await t.get(userRef);
-      if (uDoc.data().gold < amount) throw new Error('金幣不足！');
-      t.update(userRef, { gold: uDoc.data().gold - amount });
-
-      const mDoc = await t.get(memberRef);
-      t.update(memberRef, { contribution: (mDoc.data().contribution || 0) + amount });
-    });
-    return { message: `成功捐獻 ${amount} 金幣！獲得 ${amount} 點公會貢獻。` };
-  },
-
-  buyGuildShop: async (item_id) => {
-    const uid = getUserId();
-    const memberQ = query(collection(db, 'guild_members'), where('user_id', '==', uid));
-    const memberSnap = await getDocs(memberQ);
-    if (memberSnap.empty) throw new Error('你沒有加入任何公會！');
-    const memberRef = memberSnap.docs[0].ref;
-
-    const PRICES = { 'chip_extractor': 300, 'breed_catalyst': 150, 'ultimate_core': 500 };
-    const cost = PRICES[item_id] || 9999;
-
-    await runTransaction(db, async (t) => {
-      const mDoc = await t.get(memberRef);
-      if ((mDoc.data().contribution || 0) < cost) throw new Error('公會貢獻點數不足！');
-      t.update(memberRef, { contribution: mDoc.data().contribution - cost });
-
-      const invQ = query(collection(db, 'user_inventory'), where('user_id', '==', uid), where('item_id', '==', item_id));
-      const invSnap = await getDocs(invQ);
-      if (invSnap.empty) {
-        const newInvRef = doc(collection(db, 'user_inventory'));
-        let type = 1;
-        if (item_id === 'chip_extractor') type = 4;
-        if (item_id === 'breed_catalyst') type = 3;
-        if (item_id === 'ultimate_core') type = 5;
-        t.set(newInvRef, { user_id: uid, item_id, item_type: type, quantity: 1 });
+    const q = await getDocs(query(collection(db, 'guild_members'), where('user_id', '==', uid)));
+    if (q.empty) throw new Error('您目前沒有公會！');
+    const memberRef = q.docs[0].ref;
+    const member = q.docs[0].data();
+    const guildRef = doc(db, 'guilds', member.guild_id);
+    const isLeader = member.role === 2;
+    const allMembers = isLeader ? await getDocs(query(collection(db, 'guild_members'), where('guild_id', '==', member.guild_id))) : null;
+    await runTransaction(db, async t => {
+      const current = await t.get(memberRef);
+      const guild = await t.get(guildRef);
+      if (!current.exists() || current.data().user_id !== uid) throw new Error('會員資料已變更！');
+      if (isLeader && (!guild.exists() || guild.data().leader_id !== uid)) throw new Error('會長資料已變更！');
+      if (isLeader) {
+        for (const d of allMembers.docs) {
+          if (d.id !== memberRef.id) await t.get(d.ref);
+        }
+      }
+      if (isLeader) {
+        for (const d of allMembers.docs) t.delete(d.ref);
+        t.delete(guildRef);
       } else {
-        const invDoc = invSnap.docs[0];
-        t.update(invDoc.ref, { quantity: invDoc.data().quantity + 1 });
+        t.delete(memberRef);
       }
     });
+    return { message: isLeader ? '已解散公會！' : '已退出公會！' };
+  },
 
-    return { message: `成功兌換 ${item_id}！消耗 ${cost} 貢獻。` };
+  donateGuild: async (amount) => {
+    const uid = getUserId();
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('請輸入正整數捐獻金額！');
+    const memberQ = await getDocs(query(collection(db, 'guild_members'), where('user_id', '==', uid)));
+    if (memberQ.empty) throw new Error('你沒有加入任何公會！');
+    const memberRef = memberQ.docs[0].ref;
+    const userRef = doc(db, 'users', uid);
+    await runTransaction(db, async t => {
+      const u = await t.get(userRef);
+      const member = await t.get(memberRef);
+      if (!u.exists() || (u.data().gold || 0) < amount) throw new Error('金幣不足！');
+      if (!member.exists() || member.data().user_id !== uid) throw new Error('會員資料異常！');
+      t.update(userRef, { gold: u.data().gold - amount });
+      t.update(memberRef, { contribution: (member.data().contribution || 0) + amount });
+    });
+    return { message: `成功捐獻 ${amount} 金幣，獲得 ${amount} 點公會貢獻！` };
+  },
+
+  buyGuildShop: async (itemId) => {
+    const uid = getUserId();
+    const prices = { chip_extractor: 300, breed_catalyst: 150, ultimate_core: 500 };
+    if (!Object.hasOwn(prices, itemId)) throw new Error('未知公會商品！');
+    const memberQ = await getDocs(query(collection(db, 'guild_members'), where('user_id', '==', uid)));
+    if (memberQ.empty) throw new Error('你沒有加入任何公會！');
+    const memberRef = memberQ.docs[0].ref;
+    const invRef = await ownedInventoryItem(uid, itemId);
+    await runTransaction(db, async t => {
+      const member = await t.get(memberRef);
+      const inv = await t.get(invRef);
+      if (!member.exists() || member.data().user_id !== uid ||
+          (member.data().contribution || 0) < prices[itemId]) throw new Error('公會貢獻點數不足！');
+      if (inv.exists() && (inv.data().user_id !== uid || inv.data().item_id !== itemId)) throw new Error('背包資料異常！');
+      t.update(memberRef, { contribution: member.data().contribution - prices[itemId] });
+      if (inv.exists()) t.update(invRef, { quantity: (inv.data().quantity || 0) + 1 });
+      else t.set(invRef, { user_id: uid, item_id: itemId,
+        item_type: itemId === 'chip_extractor' ? 4 : itemId === 'breed_catalyst' ? 3 : 5,
+        quantity: 1 });
+    });
+    return { message: `成功兌換 ${itemId}，消耗 ${prices[itemId]} 貢獻！` };
   },
 
   getRaidStatus: async () => {
