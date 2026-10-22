@@ -168,7 +168,7 @@ export const api = {
   attackRaidBoss: monster_id => action('raid', { monster_id }),
   searchPlayers: async typeFilter => {
     let q = supabase.from('monsters')
-      .select('user_id,monster_id,custom_name:name,name,family,type,life_stage,is_dead')
+      .select('user_id,monster_id,name,family,type,life_stage,is_dead')
       .eq('is_dead',false).limit(100);
     if (typeFilter) q = q.eq('type',Number(typeFilter));
     const { data, error } = await q;
