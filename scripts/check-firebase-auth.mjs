@@ -18,6 +18,23 @@ if (!/^AIza[\w-]{35}$/.test(key)) {
 }
 
 try {
+  // Verify the API key maps to the *existing* game project rather than a new one.
+  const projectResponse = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/projects?key=${encodeURIComponent(key)}`,
+    {
+      headers: { referer: 'https://hub-google.github.io/monster-arena-web/' },
+      signal: AbortSignal.timeout(15000)
+    }
+  );
+  const publicProject = await projectResponse.json();
+  if (!projectResponse.ok) {
+    throw new Error(`Firebase project lookup failed: ${publicProject.error?.message || projectResponse.status}`);
+  }
+  if (publicProject.projectId !== 'monster-arena-web-app') {
+    throw new Error('The supplied API key points to the wrong Firebase project. Existing player data was not migrated.');
+  }
+  console.log('Firebase API key matches the expected monster-arena-web-app project.');
+
   const response = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:createAuthUri?key=${encodeURIComponent(key)}`,
     {
